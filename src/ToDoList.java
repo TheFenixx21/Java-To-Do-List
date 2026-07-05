@@ -1,32 +1,44 @@
+import java.util.ArrayList; 
+
 public class ToDoList {
 
-    String[] tareas = new String[10];
-    public void agregarTarea(String tarea) {
-        for (int i = 0; i < tareas.length; i++) {
-            if (tareas[i] == null) {
-                tareas[i] = tarea;
-                break;
-            }
-        }
+    private ArrayList<Tarea> tareas = new ArrayList<>();
+
+    public void agregarTarea(String descripcion) {
+        Tarea nuevaTarea = new Tarea(descripcion);
+        tareas.add(nuevaTarea); 
     }
 
     public String verTareas() {
+        if (tareas.isEmpty()) {
+            return "No hay tareas pendientes.\n";
+        }
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < tareas.length; i++) {
-            if (tareas[i] != null) {
-                sb.append(i + 1).append(". ").append(tareas[i]).append("\n");
+        for (int i = 0; i < tareas.size(); i++) {
+            Tarea tareaActual = tareas.get(i);
+            String estado = "[ ]";
+            if (tareaActual.isCompletada()) {
+                estado = "[X]";
             }
+            
+            sb.append(i + 1).append(". ").append(estado).append(" ").append(tareaActual.getDescripcion()).append("\n");
         }
         return sb.toString();
     }
 
-    public void eliminarTarea(int indice) {
-        int indiceReal = indice - 1; 
-        if (indiceReal >= 0 && indiceReal < tareas.length) {
-            for (int i = indiceReal; i < tareas.length - 1; i++) {
-                tareas[i] = tareas[i + 1]; 
-            }
-            tareas[tareas.length - 1] = null; 
+    public void eliminarTarea(int indice2) {
+        int indiceReal = indice2 - 1;
+        if (indiceReal >= 0 && indiceReal < tareas.size()) {
+            tareas.remove(indiceReal);
+        }
+    }
+
+    public void marcarCompletada(int indice) {
+        int indiceReal = indice - 1;
+        
+        if (indiceReal >= 0 && indiceReal < tareas.size()) {
+            Tarea tareaSeleccionada = tareas.get(indiceReal);
+            tareaSeleccionada.setCompletada(true);
         }
     }
 }
