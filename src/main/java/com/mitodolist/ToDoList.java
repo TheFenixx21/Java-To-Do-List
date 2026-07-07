@@ -34,20 +34,24 @@ public class ToDoList {
         return sb.toString();
     }
 
-    public void eliminarTarea(int indice) {
+    public boolean eliminarTarea(int indice) {
         int indiceReal = indice - 1;
         if (indiceReal >= 0 && indiceReal < tareas.size()) {
             tareas.remove(indiceReal);
             gestor.guardarTareas(tareas);
+            return true;
         }
+        return false;
     }
 
-    public void marcarCompletada(int indice) {
+    public boolean marcarCompletada(int indice) {
         int indiceReal = indice - 1;
         if (indiceReal >= 0 && indiceReal < tareas.size()) {
             Tarea tareaSeleccionada = tareas.get(indiceReal);
             tareaSeleccionada.setCompletada(true);
             gestor.guardarTareas(tareas);
+            return true;
         }
+        return false;
     }
 }

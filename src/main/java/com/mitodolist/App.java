@@ -10,8 +10,12 @@ public class App {
             switch (opcion) {
                 case 1:
                     String tarea = JOptionPane.showInputDialog("Ingrese la tarea que desea agregar:");
-                    toDoList.agregarTarea(tarea);
-                    JOptionPane.showMessageDialog(null, "La tarea se ha agregado correctamente");
+                    if (tarea != null && !tarea.trim().isEmpty()) {
+                        toDoList.agregarTarea(tarea.trim()); 
+                        JOptionPane.showMessageDialog(null, "✔ La tarea se ha agregado correctamente");
+                    } else {
+                        JOptionPane.showMessageDialog(null, "⚠️ Error: La tarea no puede estar vacía.");
+                    }
                     break;
                 case 2:
                     JOptionPane.showMessageDialog(null, "Tareas: \n" + toDoList.verTareas());
@@ -19,15 +23,24 @@ public class App {
                 case 3:
                     int indice = solicitarNumero("Ingrese el numero de la tarea que desea marcar como completada: \n" + toDoList.verTareas());
                     if (indice != -1) {
-                        toDoList.marcarCompletada(indice);
-                        JOptionPane.showMessageDialog(null, "La tarea se ha marcado como completada correctamente");
+                        boolean exito = toDoList.marcarCompletada(indice);                        
+                        if (exito) {
+                            JOptionPane.showMessageDialog(null, "✔️ La tarea se ha marcado como completada.");
+                        } else {
+                            JOptionPane.showMessageDialog(null, "❌ Error: El número ingresado no corresponde a ninguna tarea.");
+                        }
                     }
                     break;
+                    
                 case 4:
                     int indice2 = solicitarNumero("Ingrese el numero de la tarea que desea eliminar: \n" + toDoList.verTareas());
                     if (indice2 != -1) {
-                        toDoList.eliminarTarea(indice2);
-                        JOptionPane.showMessageDialog(null, "La tarea se ha eliminado correctamente");
+                        boolean exito = toDoList.eliminarTarea(indice2);                        
+                        if (exito) {
+                            JOptionPane.showMessageDialog(null, "🗑️ La tarea se ha eliminado correctamente.");
+                        } else {
+                            JOptionPane.showMessageDialog(null, "❌ Error: El número ingresado no corresponde a ninguna tarea.");
+                        }
                     }
                     break;
                 default:
@@ -48,7 +61,7 @@ public class App {
             try {
                 return Integer.parseInt(entrada); 
             } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(null, "Error: Por favor, ingrese únicamente números enteros.");
+                JOptionPane.showMessageDialog(null, "⚠️ Error: Por favor, ingrese únicamente números enteros.");
             }
         }
     }
