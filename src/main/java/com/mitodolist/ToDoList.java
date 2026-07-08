@@ -29,26 +29,63 @@ public class ToDoList {
         gestor.guardarTareas(tareas);
     }
 
-    public String verTareas() {
+    public String verTareas(int filtro) {
         if (tareas.isEmpty()) {
-            return "No hay tareas pendientes.\n";
+            return "No hay tareas registradas.\n";
         }
-        
+
         StringBuilder sb = new StringBuilder();
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        boolean hayResultados = false;
+
         for (int i = 0; i < tareas.size(); i++) {
             Tarea tareaActual = tareas.get(i);
-            String estado = "[ ]";
-            if (tareaActual.isCompletada()) {
-                estado = "[X]";
-            }
-            String textoFecha = "";
-            if (tareaActual.getFechaLimite() != null) {
-                textoFecha = " 📅 [Vence: " + tareaActual.getFechaLimite().toString() + "]";
-            }
             
-            sb.append(i + 1).append(". ").append(estado).append(" ").append(tareaActual.getDescripcion()).append(textoFecha).append("\n");
+            boolean mostrar = false;
+            switch (filtro) {
+                case 1: // Todas
+                    mostrar = true;
+                    break;
+                case 2: // Solo Pendientes
+                    mostrar = !tareaActual.isCompletada();
+                    break;
+                case 3: // Solo Completadas
+                    mostrar = tareaActual.isCompletada();
+                    break;
+                case 4: // Solo Atrasadas (Pendientes + Fecha límite vencida)
+                    mostrar = !tareaActual.isCompletada() && tareaActual.getFechaLimite() != null && tareaActual.getFechaLimite().isBefore(hoy);
+                    break;
+                default: 
+                    mostrar = true; 
+            }
+
+           
+            if (mostrar) {
+                hayResultados = true;
+                String estado = "[ ]";
+                if (tareaActual.isCompletada()) {
+                    estado = "[X]";
+                }
+                
+                String textoFecha = "";
+                if (tareaActual.getFechaLimite() != null) {
+                    textoFecha = " 📅 [Vence: " + tareaActual.getFechaLimite().toString() + "]";
+                }
+                
+                sb.append(i + 1).append(". ").append(estado).append(" ").append(tareaActual.getDescripcion()).append(textoFecha).append("\n");
+            }
         }
+
+        if (!hayResultados) {
+            return "No se encontraron tareas bajo este filtro.\n";
+        }
+
         return sb.toString();
+    }
+
+    //sobrecarga del método verTareas para mostrar todas las tareas por defecto
+    public String verTareas() {
+        return verTareas(1); 
     }
 
     public boolean marcarCompletada(int indice) {

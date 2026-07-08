@@ -1,6 +1,6 @@
 package com.mitodolist;
 
-import java.time.LocalDate; // ¡NUEVO! Importamos la herramienta de fechas
+import java.time.LocalDate;
 
 public class Tarea {
     

@@ -33,7 +33,23 @@ public class App {
                     }
                     break;
                 case 2:
-                    JOptionPane.showMessageDialog(null, "Tareas: \n" + toDoList.verTareas());
+                    if (!toDoList.hayTareas()) {
+                        JOptionPane.showMessageDialog(null, "⚠️ No hay tareas registradas en tu lista.");
+                        break;
+                    }
+
+                    String textoFiltros = "Seleccione una vista:\n"
+                                        + "1. 📋 Todas las tareas\n"
+                                        + "2. ⏳ Solo Pendientes\n"
+                                        + "3. ✅ Solo Completadas\n"
+                                        + "4. ⚠️ Solo Atrasadas";
+                    
+                    int filtro = solicitarNumero(textoFiltros);
+                    
+                    if (filtro != -1) {
+                        String listaFiltrada = toDoList.verTareas(filtro);                        
+                        JOptionPane.showMessageDialog(null, listaFiltrada, "Visor de Tareas", JOptionPane.INFORMATION_MESSAGE);
+                    }
                     break;
                 case 3:
                     if (!toDoList.hayTareas()) {
