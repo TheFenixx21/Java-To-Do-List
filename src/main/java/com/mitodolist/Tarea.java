@@ -1,12 +1,17 @@
 package com.mitodolist;
+
+import java.time.LocalDate; // ¡NUEVO! Importamos la herramienta de fechas
+
 public class Tarea {
     
     private String descripcion;
     private boolean completada;
+    private LocalDate fechaLimite;
 
     public Tarea(String descripcion) {
         this.descripcion = descripcion;
         this.completada = false; 
+        this.fechaLimite = null;
     }
 
     public String getDescripcion() {
@@ -23,5 +28,13 @@ public class Tarea {
 
     public void setCompletada(boolean completada) {
         this.completada = completada;
+    }
+
+    public LocalDate getFechaLimite() {
+        return this.fechaLimite;
+    }
+
+    public void setFechaLimite(LocalDate fechaLimite) {
+        this.fechaLimite = fechaLimite;
     }
 }
