@@ -156,4 +156,30 @@ public class ToDoList {
              + "📅 Tareas para HOY: " + tareasParaHoy + "\n"
              + "⏳ Tareas futuras: " + tareasPendientesSanas;
     }
+    public int contarPendientes() {
+        int contador = 0;
+        for (Tarea t : tareas) {
+            if (!t.isCompletada()) contador++;
+        }
+        return contador;
+    }
+
+    public int contarCompletadas() {
+        int contador = 0;
+        for (Tarea t : tareas) {
+            if (t.isCompletada()) contador++;
+        }
+        return contador;
+    }
+
+    public int contarAtrasadas() {
+        int contador = 0;
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        for (Tarea t : tareas) {
+            if (!t.isCompletada() && t.getFechaLimite() != null && t.getFechaLimite().isBefore(hoy)) {
+                contador++;
+            }
+        }
+        return contador;
+    }
 }
