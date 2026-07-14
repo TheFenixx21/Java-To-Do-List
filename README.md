@@ -1,10 +1,10 @@
-# Mi ToDo List - V1.0.0e 📋
+# Mi ToDo List - V1.5.1e 📋
 
 Una aplicación de escritorio para la gestión de tareas desarrollada en Java con interfaz gráfica en JavaFX.
 
 ## Características ✨
 * Creación, lectura, actualización y eliminación (CRUD) de tareas.
-* Filtros dinámicos (Pendientes, Completadas, Atrasadas).
+* Filtros dinámicos.
 * Panel de estadísticas en tiempo real.
 * Persistencia de datos mediante archivos JSON.
 

@@ -42,6 +42,11 @@ public class GestorArchivos {
             ArrayList<Tarea> tareasRecuperadas = gson.fromJson(lector, tipoLista);
             
             if (tareasRecuperadas != null) {
+                for (Tarea t : tareasRecuperadas) {
+                    if (t.getCategoria() == null) {
+                        t.setCategoria("Sin categoría"); 
+                    }
+                }
                 return tareasRecuperadas;
             }
         } catch (IOException e) {

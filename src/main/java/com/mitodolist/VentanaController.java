@@ -11,7 +11,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
-// --- NUEVAS HERRAMIENTAS PARA LOS POP-UPS ---
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.ButtonType;
@@ -20,7 +19,7 @@ import java.util.Optional;
 public class VentanaController {
 
     @FXML private ComboBox<String> comboFiltros;
-    @FXML private ListView<String> listaTareas;
+    @FXML private ListView<Tarea> listaTareas;
     @FXML private TextField txtNuevaTarea;
     @FXML private Button btnAgregar;
     @FXML private DatePicker calendarioPrincipal;
@@ -31,6 +30,7 @@ public class VentanaController {
 
     private ToDoList logica = new ToDoList();
     private int filtroActual = 1;
+    private String categoriaActual = "Todas";
 
     @FXML
     public void initialize() {
@@ -56,9 +56,12 @@ public class VentanaController {
 
         MenuItem menuEliminar = new MenuItem("🗑️ Eliminar Tarea");
         menuEliminar.setOnAction(e -> accionEliminar());
+
+        MenuItem menuEditarCat = new MenuItem("🗂️ Editar Categoría");
+        menuEditarCat.setOnAction(e -> accionEditarCategoria());
         
-        // Agregamos todas las opciones al menú
-        menuClickDerecho.getItems().addAll(menuCompletar, menuEditarDesc, menuEditarFecha, menuEliminar);
+        // ¡No olvides agregarlo a la lista final del menú!
+        menuClickDerecho.getItems().addAll(menuCompletar, menuEditarDesc, menuEditarFecha, menuEditarCat, menuEliminar);
         listaTareas.setContextMenu(menuClickDerecho);
 
         txtNuevaTarea.setOnKeyPressed(evento -> {
@@ -67,36 +70,98 @@ public class VentanaController {
             }
         });
 
+        // --- FÁBRICA DE CELDAS: CÓMO PINTAR CADA TAREA ---
+        listaTareas.setCellFactory(parametro -> new javafx.scene.control.ListCell<Tarea>() {
+            @Override
+            protected void updateItem(Tarea tareaActual, boolean vacio) {
+                super.updateItem(tareaActual, vacio);
+
+                if (vacio || tareaActual == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    // 1. Rescatamos tu formato de fecha (DD/MM/AAAA)
+                    String textoFecha = "";
+                    if (tareaActual.getFechaLimite() != null) {
+                        java.time.format.DateTimeFormatter formato = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        textoFecha = " 📅 [Vence: " + tareaActual.getFechaLimite().format(formato) + "]";
+                    }
+
+                    // 2. Calculamos el ID real de la tarea
+                    int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(tareaActual) + 1;
+                    
+                    // 3. Armamos el texto base
+                    String estado = tareaActual.isCompletada() ? "[X]" : "[ ]";
+                    setText(idReal + ". " + estado + " " + tareaActual.getDescripcion() + textoFecha);
+
+                    // 4. EL INDICADOR VISUAL (Círculo de estado)
+                    javafx.scene.shape.Circle indicador = new javafx.scene.shape.Circle(6); // Radio de 6 píxeles
+                    java.time.LocalDate hoy = java.time.LocalDate.now();
+                    
+                    if (tareaActual.isCompletada()) {
+                        // 🟢 Verde para completadas
+                        indicador.setFill(javafx.scene.paint.Color.web("#4CAF50")); 
+                    } else if (tareaActual.getFechaLimite() != null && tareaActual.getFechaLimite().isBefore(hoy)) {
+                        // 🔴 Rojo para atrasadas
+                        indicador.setFill(javafx.scene.paint.Color.web("#F44336")); 
+                    } else if (tareaActual.getFechaLimite() != null) {
+                        // 🟡 Amarillo para tareas pendientes que SÍ tienen una fecha límite
+                        indicador.setFill(javafx.scene.paint.Color.web("#FFEB3B")); 
+                    } else {
+                        // ⚪ Gris neutral para tareas sin fecha (Ideas / Backlog a futuro)
+                        indicador.setFill(javafx.scene.paint.Color.web("#9E9E9E")); 
+                    }
+
+                    // Le decimos a la celda que ponga el círculo al lado del texto
+                    setGraphic(indicador); 
+                }
+            }
+        });
+
         actualizarInterfaz();
     }
 
     private void actualizarInterfaz() {
-        listaTareas.getItems().clear();
-        
-        String tareasTexto = logica.verTareas(filtroActual);
-        
-        if (!tareasTexto.startsWith("No hay tareas") && !tareasTexto.startsWith("No se encontraron")) {
-            String[] lineas = tareasTexto.split("\n");
-            listaTareas.getItems().addAll(lineas);
-        } else {
-            listaTareas.getItems().add(tareasTexto);
-        }
-        
-        lblPendientes.setText("Pendientes: " + logica.contarPendientes());
-        lblCompletadas.setText("Completadas: " + logica.contarCompletadas());
-        lblAtrasadas.setText("Atrasadas: " + logica.contarAtrasadas());
+    listaTareas.getItems().clear();
+    
+    java.util.ArrayList<Tarea> listaNueva = logica.obtenerTareasFiltradas(filtroActual, categoriaActual);
+    
+    if (!listaNueva.isEmpty()) {
+        listaTareas.getItems().addAll(listaNueva);
     }
+    
+    lblPendientes.setText("Pendientes: " + logica.contarPendientes());
+    lblCompletadas.setText("Completadas: " + logica.contarCompletadas());
+    lblAtrasadas.setText("Atrasadas: " + logica.contarAtrasadas());
+}
 
-    @FXML
+   @FXML
     public void agregarNuevaTarea() {
         String texto = txtNuevaTarea.getText();
         java.time.LocalDate fecha = calendarioPrincipal.getValue();
 
         if (texto != null && !texto.trim().isEmpty()) {
-            logica.agregarTarea(texto, fecha);
-            actualizarInterfaz();
-            txtNuevaTarea.clear();
-            calendarioPrincipal.setValue(null);
+            java.util.List<String> opciones = java.util.Arrays.asList(
+                "Sin categoría", "Trabajo", "Estudios", "Idiomas", "Gaming", "Hogar / Jardín"
+            );
+
+            String sugerencia = categoriaActual.equals("Todas") ? "Sin categoría" : categoriaActual;
+
+            javafx.scene.control.ChoiceDialog<String> dialogo = new javafx.scene.control.ChoiceDialog<>(sugerencia, opciones);
+            dialogo.setTitle("Asignar Categoría");
+            dialogo.setHeaderText("Has creado: '" + texto + "'");
+            dialogo.setContentText("¿En qué lista deseas guardarla?");
+
+            java.util.Optional<String> resultado = dialogo.showAndWait();
+
+            if (resultado.isPresent()) {
+                String catDestino = resultado.get();
+                logica.agregarTarea(texto, fecha, catDestino);
+                actualizarInterfaz();
+                
+                txtNuevaTarea.clear();
+                calendarioPrincipal.setValue(null);
+            }
         }
     }
 
@@ -139,6 +204,32 @@ public class VentanaController {
         }
     }
 
+    private void accionEditarCategoria() {
+        // 1. Conseguimos la tarea exacta que el usuario seleccionó
+        Tarea tareaSeleccionada = listaTareas.getSelectionModel().getSelectedItem();
+        int idReal = obtenerIdTareaSeleccionada();
+        
+        if (idReal != -1 && tareaSeleccionada != null) {
+            // 2. Las opciones disponibles
+            java.util.List<String> opciones = java.util.Arrays.asList(
+                "Sin categoría", "Trabajo", "Estudios", "Idiomas", "Gaming", "Hogar / Jardín"
+            );
+
+            // 3. Creamos el pop-up, sugiriendo la categoría que YA tiene la tarea
+            javafx.scene.control.ChoiceDialog<String> dialogo = new javafx.scene.control.ChoiceDialog<>(tareaSeleccionada.getCategoria(), opciones);
+            dialogo.setTitle("Editar Categoría");
+            dialogo.setHeaderText("Mover tarea a otra lista:");
+            dialogo.setContentText("Nueva lista destino:");
+
+            // 4. Capturamos la respuesta
+            java.util.Optional<String> resultado = dialogo.showAndWait();
+            resultado.ifPresent(nuevaCat -> {
+                logica.editarCategoria(idReal, nuevaCat);
+                actualizarInterfaz();
+            });
+        }
+    }
+
     // --- NUEVO: ACCIÓN EDITAR FECHA ---
     private void accionEditarFecha() {
         int idReal = obtenerIdTareaSeleccionada();
@@ -171,17 +262,56 @@ public class VentanaController {
     }
 
     private int obtenerIdTareaSeleccionada() {
-        String seleccion = listaTareas.getSelectionModel().getSelectedItem();
-        
-        if (seleccion == null || seleccion.startsWith("No ")) {
-            return -1; 
-        }
-        
-        try {
-            String[] partes = seleccion.split("\\.");
-            return Integer.parseInt(partes[0].trim());
-        } catch (Exception e) {
-            return -1;
-        }
+    Tarea tareaSeleccionada = listaTareas.getSelectionModel().getSelectedItem();
+    
+    if (tareaSeleccionada == null) {
+        return -1; 
+    }
+    
+    int indiceReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(tareaSeleccionada) + 1;
+    
+    return indiceReal;
+}
+
+@FXML
+    public void cambiarAVerTodas() {
+    categoriaActual = "Todas";
+    actualizarInterfaz();
+    }
+
+    @FXML
+    public void cambiarATrabajo() {
+        categoriaActual = "Trabajo";
+        actualizarInterfaz();
+    }
+
+    @FXML
+    public void cambiarAEstudios() {
+        categoriaActual = "Estudios";
+        actualizarInterfaz();
+    }
+
+    @FXML
+    public void cambiarAIdiomas() {
+        categoriaActual = "Idiomas";
+        actualizarInterfaz();
+    }
+
+    @FXML
+    public void cambiarAGaming() {
+        categoriaActual = "Gaming";
+        actualizarInterfaz();
+    }
+
+    @FXML
+    public void cambiarAHogar() {
+        categoriaActual = "Hogar / Jardín";
+        actualizarInterfaz();
+    }
+
+    @FXML
+    public void cambiarASinCategoria() {
+        categoriaActual = "Sin categoría";
+        actualizarInterfaz();
     }
 }

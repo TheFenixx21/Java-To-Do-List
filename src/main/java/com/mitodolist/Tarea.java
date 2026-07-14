@@ -7,11 +7,13 @@ public class Tarea {
     private String descripcion;
     private boolean completada;
     private LocalDate fechaLimite;
+    private String categoria; // Nueva propiedad para la categoría
 
     public Tarea(String descripcion) {
         this.descripcion = descripcion;
         this.completada = false; 
         this.fechaLimite = null;
+        this.categoria = "Sin categoría";
     }
 
     public String getDescripcion() {
@@ -36,5 +38,13 @@ public class Tarea {
 
     public void setFechaLimite(LocalDate fechaLimite) {
         this.fechaLimite = fechaLimite;
+    }
+
+    public String getCategoria() {
+        return this.categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
     }
 }

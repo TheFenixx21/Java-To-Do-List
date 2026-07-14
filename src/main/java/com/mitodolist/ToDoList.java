@@ -22,70 +22,12 @@ public class ToDoList {
     }
 
     //Métodos CRUD
-    public void agregarTarea(String descripcion, java.time.LocalDate fechaLimite) {
-        Tarea nuevaTarea = new Tarea(descripcion);
-        nuevaTarea.setFechaLimite(fechaLimite);
-        tareas.add(nuevaTarea);
+    public void agregarTarea(String descripcion, java.time.LocalDate fechaLimite, String categoria) {
+        Tarea nueva = new Tarea(descripcion);
+        nueva.setFechaLimite(fechaLimite);
+        nueva.setCategoria(categoria);
+        tareas.add(nueva);
         gestor.guardarTareas(tareas);
-    }
-
-    public String verTareas(int filtro) {
-        if (tareas.isEmpty()) {
-            return "No hay tareas registradas.\n";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        java.time.LocalDate hoy = java.time.LocalDate.now();
-        boolean hayResultados = false;
-
-        for (int i = 0; i < tareas.size(); i++) {
-            Tarea tareaActual = tareas.get(i);
-            
-            boolean mostrar = false;
-            switch (filtro) {
-                case 1: // Todas
-                    mostrar = true;
-                    break;
-                case 2: // Solo Pendientes
-                    mostrar = !tareaActual.isCompletada();
-                    break;
-                case 3: // Solo Completadas
-                    mostrar = tareaActual.isCompletada();
-                    break;
-                case 4: // Solo Atrasadas (Pendientes + Fecha límite vencida)
-                    mostrar = !tareaActual.isCompletada() && tareaActual.getFechaLimite() != null && tareaActual.getFechaLimite().isBefore(hoy);
-                    break;
-                default: 
-                    mostrar = true; 
-            }
-
-           
-            if (mostrar) {
-                hayResultados = true;
-                String estado = "[ ]";
-                if (tareaActual.isCompletada()) {
-                    estado = "[X]";
-                }
-                
-                String textoFecha = "";
-                if (tareaActual.getFechaLimite() != null) {
-                    textoFecha = " 📅 [Vence: " + tareaActual.getFechaLimite().toString() + "]";
-                }
-                
-                sb.append(i + 1).append(". ").append(estado).append(" ").append(tareaActual.getDescripcion()).append(textoFecha).append("\n");
-            }
-        }
-
-        if (!hayResultados) {
-            return "No se encontraron tareas bajo este filtro.\n";
-        }
-
-        return sb.toString();
-    }
-
-    //sobrecarga del método verTareas para mostrar todas las tareas por defecto
-    public String verTareas() {
-        return verTareas(1); 
     }
 
     public boolean marcarCompletada(int indice) {
@@ -118,6 +60,15 @@ public class ToDoList {
     public boolean editarFechaLimite(int indice, java.time.LocalDate nuevaFecha) {
         if (existeTarea(indice)) {
             tareas.get(indice - 1).setFechaLimite(nuevaFecha);
+            gestor.guardarTareas(tareas);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean editarCategoria(int indice, String nuevaCategoria) {
+        if (existeTarea(indice)) {
+            tareas.get(indice - 1).setCategoria(nuevaCategoria);
             gestor.guardarTareas(tareas);
             return true;
         }
@@ -181,5 +132,31 @@ public class ToDoList {
             }
         }
         return contador;
+    }
+
+    public ArrayList<Tarea> obtenerTareasFiltradas(int filtro, String categoriaDeseada) {
+        ArrayList<Tarea> resultado = new ArrayList<>();
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+
+        for (Tarea tareaActual : tareas) {
+            // 1. ¿Cumple con el estado (Pendiente/Completada)?
+            boolean incluirPorFiltro = false;
+            switch (filtro) {
+                case 1: incluirPorFiltro = true; break;
+                case 2: incluirPorFiltro = !tareaActual.isCompletada(); break;
+                case 3: incluirPorFiltro = tareaActual.isCompletada(); break;
+                case 4: incluirPorFiltro = !tareaActual.isCompletada() && tareaActual.getFechaLimite() != null && tareaActual.getFechaLimite().isBefore(hoy); break;
+                default: incluirPorFiltro = true;
+            }
+
+            // 2. ¿Cumple con la categoría elegida en el menú lateral?
+            boolean incluirPorCategoria = categoriaDeseada.equals("Todas") || tareaActual.getCategoria().equals(categoriaDeseada);
+
+            // Si pasa ambas pruebas, se muestra en pantalla
+            if (incluirPorFiltro && incluirPorCategoria) {
+                resultado.add(tareaActual);
+            }
+        }
+        return resultado;
     }
 }

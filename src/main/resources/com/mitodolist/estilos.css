@@ -1,0 +1,94 @@
+
+.list-view {
+    -fx-background-color: #0F0F0F;
+    -fx-control-inner-background: #0F0F0F;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+
+.list-cell {
+    -fx-text-fill: white;
+    -fx-background-color: transparent;
+}
+
+
+.list-cell:filled:selected:focused, .list-cell:filled:selected {
+    -fx-background-color: #2A2A2A;
+    -fx-text-fill: white;
+}
+
+/* --- ESTILOS PARA EL CALENDARIO (DATEPICKER) --- */
+
+/* 1. La caja de texto principal del calendario */
+.date-picker .text-field {
+    -fx-background-color: #1E1E1E;
+    -fx-text-fill: white;
+    -fx-border-color: #333333;
+    -fx-border-radius: 3;
+}
+
+/* 2. El botón con el ícono de calendario */
+.date-picker .button {
+    -fx-background-color: #2A2A2A;
+}
+
+/* 3. El fondo general de la ventana emergente */
+.date-picker-popup {
+    -fx-background-color: #0F0F0F;
+    -fx-border-color: #333333;
+}
+
+/* 4. Los cuadros de los días */
+.date-picker-popup .day-cell {
+    -fx-background-color: #0F0F0F;
+    -fx-text-fill: #CCCCCC;
+}
+
+/* 5. Efecto al pasar el ratón sobre un día */
+.date-picker-popup .day-cell:hover {
+    -fx-background-color: #333333;
+}
+
+/* 6. El día seleccionado actualmente */
+.date-picker-popup .selected {
+    -fx-background-color: #c2185cad;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+/* 7. Arreglar la barra superior (Mes, Año y Flechas) */
+.date-picker-popup .month-year-pane {
+    -fx-background-color: #1E1E1E;
+}
+.date-picker-popup .month-year-pane .label {
+    -fx-text-fill: white;
+}
+/* Las flechitas de cambiar mes */
+.date-picker-popup .left-arrow, 
+.date-picker-popup .right-arrow {
+    -fx-background-color: white; 
+}
+.date-picker-popup .left-button, 
+.date-picker-popup .right-button {
+    -fx-background-color: transparent;
+}
+.date-picker-popup .left-button:hover, 
+.date-picker-popup .right-button:hover {
+    -fx-background-color: #333333;
+}
+
+/* 8. Destacar el DÍA DE HOY (Forzando el pintado) */
+.date-picker-popup .calendar-grid .day-cell.today {
+    -fx-background-color: #4CAF50 !important;
+    -fx-background-insets: 1;
+    -fx-background: #4CAF50;
+    -fx-text-fill: white !important;
+    -fx-font-weight: bold;
+}
+
+/* 9. La barra de los nombres de los días (Dom, Lun, Mar...) */
+.date-picker-popup .day-name-cell {
+    -fx-background-color: #1E1E1E;
+    -fx-text-fill: white;
+}

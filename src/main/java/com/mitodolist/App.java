@@ -12,7 +12,6 @@ public class App extends Application {
 
     @Override
     public void start(Stage ventana) throws Exception {
-        // Buscamos el archivo de diseño que creaste
         URL archivoFxml = getClass().getResource("/com/mitodolist/VentanaPrincipal.fxml");
         
         if (archivoFxml == null) {
@@ -20,18 +19,15 @@ public class App extends Application {
             return;
         }
 
-        // Cargamos el diseño
         Parent raiz = FXMLLoader.load(archivoFxml);
         
-        // Creamos la escena y le quitamos el fondo blanco de carga
         Scene escena = new Scene(raiz);
         escena.setFill(javafx.scene.paint.Color.web("#0F0F0F"));
+        escena.getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
 
-        // Configuramos la ventana
-        ventana.setTitle("Mi TodoList V1.0.0");
+        ventana.setTitle("Mi TodoList V1.0.0e");
         ventana.setScene(escena);
         
-        // Evitamos que la ventana se haga más pequeña de lo que diseñaste
         ventana.setMinWidth(1280);
         ventana.setMinHeight(720);
         
