@@ -25,7 +25,7 @@ public class App extends Application {
         escena.setFill(javafx.scene.paint.Color.web("#0F0F0F"));
         escena.getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
 
-        ventana.setTitle("Mi TodoList V1.0.0e");
+        ventana.setTitle("Mi TodoList V2.0.0e");
         ventana.setScene(escena);
         
         ventana.setMinWidth(1280);
