@@ -101,18 +101,22 @@ public class VentanaController {
                     if (tareaActual.isCompletada()) {
                         // 🟢 Verde para completadas
                         indicador.setFill(javafx.scene.paint.Color.web("#4CAF50")); 
-                    } else if (tareaActual.getFechaLimite() != null && tareaActual.getFechaLimite().isBefore(hoy)) {
-                        // 🔴 Rojo para atrasadas
-                        indicador.setFill(javafx.scene.paint.Color.web("#F44336")); 
                     } else if (tareaActual.getFechaLimite() != null) {
-                        // 🟡 Amarillo para tareas pendientes que SÍ tienen una fecha límite
-                        indicador.setFill(javafx.scene.paint.Color.web("#FFEB3B")); 
+                        if (tareaActual.getFechaLimite().isBefore(hoy)) {
+                            // 🔴 Rojo para atrasadas
+                            indicador.setFill(javafx.scene.paint.Color.web("#F44336")); 
+                        } else if (tareaActual.getFechaLimite().isEqual(hoy)) {
+                            // 🟡 Amarillo para tareas de HOY (Alerta / Urgente)
+                            indicador.setFill(javafx.scene.paint.Color.web("#FFEB3B"));
+                        } else {
+                            // 🔵 Azul para tareas a futuro (Tranquilidad)
+                            indicador.setFill(javafx.scene.paint.Color.web("#2196F3"));
+                        }
                     } else {
                         // ⚪ Gris neutral para tareas sin fecha (Ideas / Backlog a futuro)
                         indicador.setFill(javafx.scene.paint.Color.web("#9E9E9E")); 
                     }
-
-                    // Le decimos a la celda que ponga el círculo al lado del texto
+                    
                     setGraphic(indicador); 
                 }
             }
@@ -141,6 +145,48 @@ public class VentanaController {
         java.time.LocalDate fecha = calendarioPrincipal.getValue();
 
         if (texto != null && !texto.trim().isEmpty()) {
+            
+            // --- NUEVA LÓGICA V1.6.0: ESCÁNER ANTI-DUPLICADOS (MULTIPLE) ---
+            java.util.ArrayList<Tarea> tareasExistentes = logica.buscarTareasPorNombre(texto);
+            
+            if (!tareasExistentes.isEmpty()) {
+                int cantidadDuplicados = tareasExistentes.size();
+                
+                // Extraemos la última tarea de la lista (la más reciente que el usuario creó)
+                Tarea ultimaTarea = tareasExistentes.get(cantidadDuplicados - 1);
+
+                // Preparamos la información de esa última tarea
+                String infoFecha = (ultimaTarea.getFechaLimite() != null) 
+                    ? ultimaTarea.getFechaLimite().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) 
+                    : "Sin fecha límite";
+                String estado = ultimaTarea.isCompletada() ? "Completada" : "Pendiente";
+                String categoriaOriginal = ultimaTarea.getCategoria();
+
+                // Creamos el pop-up dinámico
+                javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
+                alerta.setTitle("Tarea Recurrente Detectada");
+                alerta.setHeaderText("¡Atención! Tienes " + cantidadDuplicados + " tarea(s) registrada(s) como: '" + texto + "'");
+                alerta.setContentText("Detalles de la coincidencia más reciente:\n"
+                        + "• Estado: " + estado + "\n"
+                        + "• Categoría: " + categoriaOriginal + "\n"
+                        + "• Fecha límite: " + infoFecha + "\n\n"
+                        + "¿Estás seguro de que deseas agregar un nuevo registro para esta tarea?");
+
+                java.util.Optional<javafx.scene.control.ButtonType> respuesta = alerta.showAndWait();
+                
+                // Si el usuario presiona "Cancelar" o cierra la ventana, abortamos
+                if (respuesta.isPresent() && respuesta.get() != javafx.scene.control.ButtonType.OK) {
+                    return; 
+                }
+            }
+            // --- FIN LÓGICA V1.6.0 ---
+            
+            // (Aquí continúa tu código normal con la lista de opciones y el ChoiceDialog...)
+            // --- FIN LÓGICA V1.6.0 ---
+
+            // Si llegamos hasta aquí, es porque no era duplicada, o el usuario confirmó querer duplicarla.
+            // Continuamos con el flujo normal de asignar categoría.
+            
             java.util.List<String> opciones = java.util.Arrays.asList(
                 "Sin categoría", "Trabajo", "Estudios", "Idiomas", "Gaming", "Hogar / Jardín"
             );

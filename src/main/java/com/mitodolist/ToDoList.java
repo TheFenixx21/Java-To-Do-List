@@ -21,6 +21,19 @@ public class ToDoList {
         return indiceReal >= 0 && indiceReal < tareas.size();
     }
 
+    // --- V1.6.0: Escáner Anti-Duplicados (Avanzado) ---
+    public java.util.ArrayList<Tarea> buscarTareasPorNombre(String descripcion) {
+        java.util.ArrayList<Tarea> encontradas = new java.util.ArrayList<>();
+        
+        for (Tarea t : tareas) {
+            if (t.getDescripcion().trim().equalsIgnoreCase(descripcion.trim())) {
+                encontradas.add(t); // En lugar de detenerse, la guarda en la lista y sigue buscando
+            }
+        }
+        
+        return encontradas; // Devuelve la lista completa de clones (vacía si no hay ninguno)
+    }
+
     //Métodos CRUD
     public void agregarTarea(String descripcion, java.time.LocalDate fechaLimite, String categoria) {
         Tarea nueva = new Tarea(descripcion);
