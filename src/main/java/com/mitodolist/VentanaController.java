@@ -45,7 +45,7 @@ public class VentanaController {
         // --- MENÚ CONTEXTUAL MEJORADO ---
         ContextMenu menuClickDerecho = new ContextMenu();
         
-        MenuItem menuCompletar = new MenuItem("✅ Marcar como Completada");
+        MenuItem menuCompletar = new MenuItem("✅ Marcar/Desmarcar como Completada");
         menuCompletar.setOnAction(e -> accionCompletar());
         
         MenuItem menuEditarDesc = new MenuItem("✏️ Editar Descripción");
@@ -116,7 +116,7 @@ public class VentanaController {
                         // ⚪ Gris neutral para tareas sin fecha (Ideas / Backlog a futuro)
                         indicador.setFill(javafx.scene.paint.Color.web("#9E9E9E")); 
                     }
-                    
+
                     setGraphic(indicador); 
                 }
             }
@@ -216,7 +216,7 @@ public class VentanaController {
     private void accionCompletar() {
         int idReal = obtenerIdTareaSeleccionada();
         if (idReal != -1) {
-            logica.marcarCompletada(idReal);
+            logica.alternarEstadoTarea(idReal);
             actualizarInterfaz();
         }
     }

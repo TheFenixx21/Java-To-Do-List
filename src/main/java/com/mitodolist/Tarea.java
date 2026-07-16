@@ -4,18 +4,23 @@ import java.time.LocalDate;
 
 public class Tarea {
     
+    // --- ATRIBUTOS DE LA CLASE ---
     private String descripcion;
     private boolean completada;
     private LocalDate fechaLimite;
-    private String categoria; // Nueva propiedad para la categoría
+    private String categoria;
+    private transient boolean notificada;
 
+    // --- CONSTRUCTOR ---
     public Tarea(String descripcion) {
         this.descripcion = descripcion;
         this.completada = false; 
         this.fechaLimite = null;
         this.categoria = "Sin categoría";
+        this.notificada = false;
     }
 
+    // --- GETTERS Y SETTERS ---
     public String getDescripcion() {
         return this.descripcion;
     }
@@ -46,5 +51,13 @@ public class Tarea {
 
     public void setCategoria(String categoria) {
         this.categoria = categoria;
+    }
+
+    public boolean isNotificada() {
+        return this.notificada;
+    }
+
+    public void setNotificada(boolean notificada) {
+        this.notificada = notificada;
     }
 }

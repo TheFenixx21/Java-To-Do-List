@@ -30,6 +30,7 @@
   </dependencies>
 
   <build>
+    <finalName>MiTodoList-V2.0.0e</finalName>
     <plugins>
       <plugin>
         <groupId>org.openjfx</groupId>
