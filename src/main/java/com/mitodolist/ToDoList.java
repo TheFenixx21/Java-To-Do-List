@@ -200,7 +200,7 @@ public class ToDoList {
         }
         return resultado;
     }
-    // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (VIGILANTE RECURRENTE) ---
+   // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (VIGILANTE RECURRENTE) ---
     private void iniciarVigilanteNotificaciones() {
         Thread vigilante = new Thread(() -> {
             
@@ -209,7 +209,6 @@ public class ToDoList {
             while (true) { 
                 try {
                     java.time.LocalDate hoy = java.time.LocalDate.now();
-                    boolean huboCambios = false;
 
                     // 1. Cada 15 minutos, "olvidamos" que ya notificamos las tareas pendientes de hoy
                     if (minutosTranscurridos >= 15) {
@@ -217,7 +216,6 @@ public class ToDoList {
                             if (!t.isCompletada() && t.getFechaLimite() != null && t.getFechaLimite().isEqual(hoy)) {
                                 t.setNotificada(false); // La reseteamos para que vuelva a sonar
                                 GestorBaseDatos.actualizarTarea(t);
-                                huboCambios = true;
                             }
                         }
                         minutosTranscurridos = 0; // Reiniciamos el cronómetro
@@ -233,7 +231,6 @@ public class ToDoList {
                                 // Marcamos que ya le avisamos al usuario
                                 t.setNotificada(true);
                                 GestorBaseDatos.actualizarTarea(t); 
-                                huboCambios = true;
                             }
                         }
                     }
