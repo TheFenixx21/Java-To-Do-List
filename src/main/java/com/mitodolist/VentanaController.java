@@ -27,6 +27,7 @@ public class VentanaController {
     @FXML private Label lblCompletadas;
     @FXML private Label lblAtrasadas;
     @FXML private TextArea txtNotasRapidas;
+    @FXML private javafx.scene.layout.VBox contenedorCategorias;
 
     private ToDoList logica = new ToDoList();
     private int filtroActual = 1;
@@ -123,6 +124,7 @@ public class VentanaController {
         });
 
         actualizarInterfaz();
+        cargarMenuLateral();
     }
 
     private void actualizarInterfaz() {
@@ -137,7 +139,54 @@ public class VentanaController {
     lblPendientes.setText("Pendientes: " + logica.contarPendientes());
     lblCompletadas.setText("Completadas: " + logica.contarCompletadas());
     lblAtrasadas.setText("Atrasadas: " + logica.contarAtrasadas());
-}
+    }
+
+    private void cargarMenuLateral() {
+        // 1. Vaciamos la caja fuerte
+        contenedorCategorias.getChildren().clear();
+
+        // 2. Creamos el botón fijo de "Ver Todas"
+        javafx.scene.control.Button btnVerTodas = new javafx.scene.control.Button("🔎 Ver Todas");
+        btnVerTodas.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: normal; -fx-cursor: hand; -fx-padding: 8 0 8 10;");
+        btnVerTodas.setOnAction(e -> {
+            categoriaActual = "Todas";
+            actualizarInterfaz();
+        });
+        contenedorCategorias.getChildren().add(btnVerTodas);
+
+        // 3. Traemos las categorías de la BD (ahora ya vienen con su emoji gracias al parche)
+        java.util.ArrayList<Categoria> categoriasBD = GestorBaseDatos.obtenerCategorias();
+
+        // 4. Fabricamos los botones dinámicos
+        for (Categoria cat : categoriasBD) {
+            
+            // Usamos directamente el nombre de la BD (ej. "💼 Trabajo" o "📁 Mi Lista")
+            javafx.scene.control.Button btn = new javafx.scene.control.Button(cat.getNombre());
+            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: normal; -fx-cursor: hand; -fx-padding: 8 0 8 10;");
+            
+            btn.setOnAction(e -> {
+                categoriaActual = cat.getNombre();
+                actualizarInterfaz();
+            });
+
+            // 5. Le pegamos el menú del clic derecho (Protegiendo el ID 1)
+            if (cat.getId() != 1) {
+                javafx.scene.control.ContextMenu menuLista = new javafx.scene.control.ContextMenu();
+                
+                javafx.scene.control.MenuItem menuRenombrar = new javafx.scene.control.MenuItem("✏️ Renombrar Lista");
+                menuRenombrar.setOnAction(eventoClick -> accionRenombrarCategoria(cat));
+                
+                javafx.scene.control.MenuItem menuEliminar = new javafx.scene.control.MenuItem("🗑️ Eliminar Lista");
+                menuEliminar.setOnAction(eventoClick -> accionEliminarCategoria(cat));
+                
+                menuLista.getItems().addAll(menuRenombrar, menuEliminar);
+                btn.setContextMenu(menuLista); // Le conectamos el menú al botón
+            }
+
+            // Inyectamos el botón en la pantalla
+            contenedorCategorias.getChildren().add(btn);
+        }
+    }
 
    @FXML
     public void agregarNuevaTarea() {
@@ -179,17 +228,21 @@ public class VentanaController {
                     return; 
                 }
             }
-            // --- FIN LÓGICA V1.6.0 ---
-            
+
             // (Aquí continúa tu código normal con la lista de opciones y el ChoiceDialog...)
             // --- FIN LÓGICA V1.6.0 ---
 
             // Si llegamos hasta aquí, es porque no era duplicada, o el usuario confirmó querer duplicarla.
             // Continuamos con el flujo normal de asignar categoría.
             
-            java.util.List<String> opciones = java.util.Arrays.asList(
-                "Sin categoría", "Trabajo", "Estudios", "Idiomas", "Gaming", "Hogar / Jardín"
-            );
+            // 1. Vamos a SQLite y extraemos las categorías reales
+            java.util.ArrayList<Categoria> listaCategoriasBD = GestorBaseDatos.obtenerCategorias();
+            
+            // 2. Extraemos solo los nombres para mostrarlos en el menú desplegable
+            java.util.List<String> opciones = new java.util.ArrayList<>();
+            for (Categoria cat : listaCategoriasBD) {
+                opciones.add(cat.getNombre());
+            }
 
             String sugerencia = categoriaActual.equals("Todas") ? "Sin categoría" : categoriaActual;
 
@@ -208,6 +261,90 @@ public class VentanaController {
                 txtNuevaTarea.clear();
                 calendarioPrincipal.setValue(null);
             }
+        }
+    }
+
+    //CRUD DE CATEGORÍAS
+
+    @FXML
+    public void accionCrearNuevaCategoria() {
+        TextInputDialog dialogo = new TextInputDialog();
+        dialogo.setTitle("Nueva Lista");
+        dialogo.setHeaderText("Tip: Presiona la tecla 'Windows + .' para elegir un emoji.");
+        dialogo.setContentText("Nombre de la lista:");
+
+        Optional<String> resultado = dialogo.showAndWait();
+        resultado.ifPresent(nombre -> {
+            String texto = nombre.trim();
+            if (!texto.isEmpty()) {
+                
+                // --- INTELIGENCIA DE EMOJIS ---
+                // Si el primer carácter es una letra o número normal, inyectamos la carpeta
+                if (Character.isLetterOrDigit(texto.codePointAt(0))) {
+                    texto = "📁 " + texto;
+                }
+                
+                GestorBaseDatos.insertarCategoria(texto, "#FFFFFF");
+                cargarMenuLateral();
+            }
+        });
+    }
+
+    private void accionRenombrarCategoria(Categoria cat) {
+        // Le mostramos el nombre actual (para que pueda mantener su emoji si quiere)
+        TextInputDialog dialogo = new TextInputDialog(cat.getNombre());
+        dialogo.setTitle("Renombrar Lista");
+        dialogo.setHeaderText("Modifica el nombre de tu lista:");
+        dialogo.setContentText("Nuevo nombre:");
+
+        Optional<String> resultado = dialogo.showAndWait();
+        resultado.ifPresent(nuevoNombre -> {
+            String texto = nuevoNombre.trim();
+            if (!texto.isEmpty()) {
+                
+                // Misma inteligencia de emojis
+                if (Character.isLetterOrDigit(texto.codePointAt(0))) {
+                    texto = "📁 " + texto;
+                }
+                
+                GestorBaseDatos.actualizarNombreCategoria(cat.getId(), texto);
+
+                logica.sincronizarConBaseDatos();
+                
+                if (categoriaActual.equals(cat.getNombre())) {
+                    categoriaActual = texto;
+                }
+                
+                cargarMenuLateral();
+                actualizarInterfaz(); 
+            }
+        });
+    }
+
+    private void accionEliminarCategoria(Categoria cat) {
+        int cantidadTareas = GestorBaseDatos.contarTareasEnCategoria(cat.getId());
+
+        // Alerta de Advertencia (Warning)
+        javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+        alerta.setTitle("Eliminar Lista");
+        alerta.setHeaderText("¿Eliminar permanentemente '" + cat.getNombre() + "'?");
+        alerta.setContentText("Esta lista contiene " + cantidadTareas + " tarea(s).\n\n" + "⚠ ADVERTENCIA: Si eliminas esta lista, TODAS las tareas en su interior serán destruidas para siempre.\n\n" + "¿Deseas continuar?");
+
+        alerta.getButtonTypes().setAll(javafx.scene.control.ButtonType.OK, javafx.scene.control.ButtonType.CANCEL);
+
+        Optional<ButtonType> respuesta = alerta.showAndWait();
+        if (respuesta.isPresent() && respuesta.get() == ButtonType.OK) {
+            
+            GestorBaseDatos.eliminarCategoria(cat.getId());
+
+            logica.sincronizarConBaseDatos();
+            
+            if (categoriaActual.equals(cat.getNombre())) {
+                categoriaActual = "Todas";
+            }
+            
+            cargarMenuLateral();
+            actualizarInterfaz();
         }
     }
 
@@ -256,10 +393,14 @@ public class VentanaController {
         int idReal = obtenerIdTareaSeleccionada();
         
         if (idReal != -1 && tareaSeleccionada != null) {
-            // 2. Las opciones disponibles
-            java.util.List<String> opciones = java.util.Arrays.asList(
-                "Sin categoría", "Trabajo", "Estudios", "Idiomas", "Gaming", "Hogar / Jardín"
-            );
+            // 1. Vamos a SQLite y extraemos las categorías reales
+            java.util.ArrayList<Categoria> listaCategoriasBD = GestorBaseDatos.obtenerCategorias();
+            
+            // 2. Extraemos solo los nombres para mostrarlos en el menú desplegable
+            java.util.List<String> opciones = new java.util.ArrayList<>();
+            for (Categoria cat : listaCategoriasBD) {
+                opciones.add(cat.getNombre());
+            }
 
             // 3. Creamos el pop-up, sugiriendo la categoría que YA tiene la tarea
             javafx.scene.control.ChoiceDialog<String> dialogo = new javafx.scene.control.ChoiceDialog<>(tareaSeleccionada.getCategoria(), opciones);
@@ -317,47 +458,5 @@ public class VentanaController {
     int indiceReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(tareaSeleccionada) + 1;
     
     return indiceReal;
-}
-
-@FXML
-    public void cambiarAVerTodas() {
-    categoriaActual = "Todas";
-    actualizarInterfaz();
-    }
-
-    @FXML
-    public void cambiarATrabajo() {
-        categoriaActual = "Trabajo";
-        actualizarInterfaz();
-    }
-
-    @FXML
-    public void cambiarAEstudios() {
-        categoriaActual = "Estudios";
-        actualizarInterfaz();
-    }
-
-    @FXML
-    public void cambiarAIdiomas() {
-        categoriaActual = "Idiomas";
-        actualizarInterfaz();
-    }
-
-    @FXML
-    public void cambiarAGaming() {
-        categoriaActual = "Gaming";
-        actualizarInterfaz();
-    }
-
-    @FXML
-    public void cambiarAHogar() {
-        categoriaActual = "Hogar / Jardín";
-        actualizarInterfaz();
-    }
-
-    @FXML
-    public void cambiarASinCategoria() {
-        categoriaActual = "Sin categoría";
-        actualizarInterfaz();
     }
 }

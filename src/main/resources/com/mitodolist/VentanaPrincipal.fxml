@@ -10,6 +10,7 @@
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="720.0" prefWidth="1280.0" style="-fx-background-color: #0F0F0F;" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mitodolist.VentanaController">
@@ -21,13 +22,16 @@
          <children>
             <ComboBox fx:id="comboFiltros" prefWidth="150.0" promptText="Filtro de Tareas" style="-fx-background-color: #1A1A1A; -fx-border-color: #333333; -fx-border-radius: 5;" />
             <Label style="-fx-text-fill: #888888; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 20 0 5 0;" text="Mis listas" textFill="WHITE" />
-            <Button layoutX="10.0" layoutY="81.0" mnemonicParsing="false" onAction="#cambiarAVerTodas" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="🔎 Ver Todas" />
-            <Button layoutX="10.0" layoutY="81.0" mnemonicParsing="false" onAction="#cambiarASinCategoria" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="📌 Sin Categoría" />
-            <Button layoutX="10.0" layoutY="76.0" mnemonicParsing="false" onAction="#cambiarATrabajo" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="💼 Trabajo" />
-            <Button mnemonicParsing="false" onAction="#cambiarAEstudios" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="📚 Estudios" />
-            <Button layoutX="10.0" layoutY="107.0" mnemonicParsing="false" onAction="#cambiarAIdiomas" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="📝 Idiomas" />
-            <Button layoutX="10.0" layoutY="101.0" mnemonicParsing="false" onAction="#cambiarAGaming" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="🎮 Gaming" />
-            <Button layoutX="10.0" layoutY="126.0" mnemonicParsing="false" onAction="#cambiarAHogar" style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-alignment: CENTER_LEFT; -fx-font-size: 15px;" text="🌱 Hogar / Jardín" />
+            <VBox fx:id="contenedorCategorias" prefHeight="200.0" prefWidth="100.0" />
+            <Region prefHeight="329.0" prefWidth="180.0" VBox.vgrow="ALWAYS" />
+            <HBox alignment="CENTER" prefHeight="43.0" prefWidth="180.0">
+               <children>
+                  <Button mnemonicParsing="false" onAction="#accionCrearNuevaCategoria" prefHeight="38.0" prefWidth="103.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 14px;" text="+Nueva lista" textFill="WHITE" />
+               </children>
+               <VBox.margin>
+                  <Insets bottom="30.0" />
+               </VBox.margin>
+            </HBox>
          </children>
       </VBox>
    </left>
@@ -56,11 +60,7 @@
             <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
                <children>
                   <TextField fx:id="txtNuevaTarea" promptText="¡Hola!¿Qué tarea tenemos hoy?" style="-fx-background-color: #1A1A1A; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 15; -fx-font-size: 15px;" HBox.hgrow="ALWAYS" />
-                  <Button fx:id="btnAgregar" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 17px;" text="+" textFill="WHITE">
-                     <HBox.margin>
-                        <Insets />
-                     </HBox.margin>
-                  </Button>
+                  <Button fx:id="btnAgregar1" layoutX="775.0" layoutY="41.0" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 17px;" text="+" textFill="WHITE" />
                </children>
             </HBox>
          </children>

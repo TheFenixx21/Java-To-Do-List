@@ -5,6 +5,7 @@ import java.time.LocalDate;
 public class Tarea {
     
     // --- ATRIBUTOS DE LA CLASE ---
+    private int id;
     private String descripcion;
     private boolean completada;
     private LocalDate fechaLimite;
@@ -21,6 +22,14 @@ public class Tarea {
     }
 
     // --- GETTERS Y SETTERS ---
+    public int getId() {
+        return this.id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
     public String getDescripcion() {
         return this.descripcion;
     }

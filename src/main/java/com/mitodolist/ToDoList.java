@@ -4,12 +4,16 @@ import java.util.ArrayList;
 public class ToDoList {
     
     private ArrayList<Tarea> tareas;
-    private GestorArchivos gestor;
+    //private GestorArchivos gestor;
 
     public ToDoList() {
-        this.gestor = new GestorArchivos(); 
-        this.tareas = gestor.cargarTareas();
+        // Le pedimos al nuevo motor que vaya a SQLite y traiga las tareas
+        this.tareas = GestorBaseDatos.cargarTareasDesdeBD(); 
         iniciarVigilanteNotificaciones(); 
+    }
+
+    public void sincronizarConBaseDatos() {
+        this.tareas = GestorBaseDatos.cargarTareasDesdeBD();
     }
 
     //Radares
@@ -40,25 +44,27 @@ public class ToDoList {
         Tarea nueva = new Tarea(descripcion);
         nueva.setFechaLimite(fechaLimite);
         nueva.setCategoria(categoria);
+        
+        // 1. Guardamos en la memoria RAM para que la interfaz gráfica (JavaFX) lo vea al instante
         tareas.add(nueva);
-        gestor.guardarTareas(tareas);
+        
+        // 2. Guardamos en SQLite usando el bisturí INSERT
+        // (Nota: Enviamos el ID de categoría 1 por defecto. Esto lo haremos dinámico más adelante)
+        GestorBaseDatos.insertarTarea(nueva, GestorBaseDatos.obtenerIdCategoria(categoria)); 
     }
 
-    // --- V2.0.0e: Interruptor de Estado (Toggle) ---
     public boolean alternarEstadoTarea(int indice) {
         if (existeTarea(indice)) {
             Tarea t = tareas.get(indice - 1);
-            
-            // Invertimos el valor actual: si era 'true' (completada), pasa a 'false' (pendiente) y viceversa
             boolean nuevoEstado = !t.isCompletada();
             t.setCompletada(nuevoEstado);
             
-            // Si la desmarcamos (pasa a pendiente), reiniciamos la notificación para que el vigilante vuelva a avisar
             if (!nuevoEstado) {
                 t.setNotificada(false);
             }
             
-            gestor.guardarTareas(tareas);
+            // Usamos el bisturí UPDATE para actualizar SÓLO esta tarea en la base de datos
+            GestorBaseDatos.actualizarTarea(t);
             return true;
         }
         return false;
@@ -66,8 +72,11 @@ public class ToDoList {
 
     public boolean eliminarTarea(int indice) {
         if (existeTarea(indice)) {
-            tareas.remove(indice - 1);
-            gestor.guardarTareas(tareas);
+            // 1. Sacamos la tarea de la memoria RAM y la capturamos en la variable 't'
+            Tarea t = tareas.remove(indice - 1);
+            
+            // 2. Le pasamos el número de placa (ID) al bisturí DELETE de SQLite
+            GestorBaseDatos.eliminarTareaBD(t.getId());
             return true;
         }
         return false;
@@ -75,8 +84,10 @@ public class ToDoList {
 
     public boolean editarTarea(int indice, String nuevaDescripcion) {
         if (existeTarea(indice)) {
-            tareas.get(indice - 1).setDescripcion(nuevaDescripcion);
-            gestor.guardarTareas(tareas);
+            Tarea t = tareas.get(indice - 1);
+            t.setDescripcion(nuevaDescripcion);
+            
+            GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE
             return true;
         }
         return false;
@@ -84,9 +95,11 @@ public class ToDoList {
 
     public boolean editarFechaLimite(int indice, java.time.LocalDate nuevaFecha) {
         if (existeTarea(indice)) {
-            tareas.get(indice - 1).setFechaLimite(nuevaFecha);
-            tareas.get(indice - 1).setNotificada(false);
-            gestor.guardarTareas(tareas);
+            Tarea t = tareas.get(indice - 1);
+            t.setFechaLimite(nuevaFecha);
+            t.setNotificada(false);
+            
+            GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE
             return true;
         }
         return false;
@@ -94,8 +107,10 @@ public class ToDoList {
 
     public boolean editarCategoria(int indice, String nuevaCategoria) {
         if (existeTarea(indice)) {
-            tareas.get(indice - 1).setCategoria(nuevaCategoria);
-            gestor.guardarTareas(tareas);
+            Tarea t = tareas.get(indice - 1);
+            t.setCategoria(nuevaCategoria);
+            
+            GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE
             return true;
         }
         return false;
@@ -201,6 +216,7 @@ public class ToDoList {
                         for (Tarea t : tareas) {
                             if (!t.isCompletada() && t.getFechaLimite() != null && t.getFechaLimite().isEqual(hoy)) {
                                 t.setNotificada(false); // La reseteamos para que vuelva a sonar
+                                GestorBaseDatos.actualizarTarea(t);
                                 huboCambios = true;
                             }
                         }
@@ -215,21 +231,17 @@ public class ToDoList {
                                 enviarNotificacionWindows("⏰ Tarea pendiente", t.getDescripcion());
                                 
                                 // Marcamos que ya le avisamos al usuario
-                                t.setNotificada(true); 
+                                t.setNotificada(true);
+                                GestorBaseDatos.actualizarTarea(t); 
                                 huboCambios = true;
                             }
                         }
                     }
 
-                    // 3. Si modificamos alguna tarea, guardamos en el JSON
-                    if (huboCambios) {
-                        gestor.guardarTareas(tareas);
-                    }
-
-                    // 4. Mandamos al vigilante a dormir por 1 minuto (60,000 milisegundos)
+                    // 3. Mandamos al vigilante a dormir por 1 minuto (60,000 milisegundos)
                     Thread.sleep(60000); 
                     
-                    // 5. Sumamos 1 minuto a nuestro cronómetro al despertar
+                    // 4. Sumamos 1 minuto a nuestro cronómetro al despertar
                     minutosTranscurridos++; 
 
                 } catch (InterruptedException e) {

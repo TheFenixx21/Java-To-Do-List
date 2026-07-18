@@ -12,6 +12,8 @@ public class App extends Application {
 
     @Override
     public void start(Stage ventana) throws Exception {
+        GestorBaseDatos.inicializarEstructura();
+        GestorBaseDatos.migrarDatosAntiguos();
         URL archivoFxml = getClass().getResource("/com/mitodolist/VentanaPrincipal.fxml");
         
         if (archivoFxml == null) {
@@ -25,7 +27,7 @@ public class App extends Application {
         escena.setFill(javafx.scene.paint.Color.web("#0F0F0F"));
         escena.getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
 
-        ventana.setTitle("Mi TodoList V2.0.0e");
+        ventana.setTitle("Mi TodoList V3.0.0e");
         ventana.setScene(escena);
         
         ventana.setMinWidth(1280);

@@ -6,15 +6,18 @@ A partir de la versión **V2.0.0e**, la aplicación cuenta con distribución nat
 
 ---
 
-## 🚀 Novedades de la Versión 2.0.0e (Estable)
+## 🚀 Novedades en la Versión 3.0.0e (Arquitectura Dinámica)
 
-Esta versión marca un hito importante en la arquitectura del proyecto, transformándolo en un software de escritorio 100% independiente:
+Esta versión marca el salto más grande en la arquitectura de **Mi ToDo List**, transformando la aplicación en un sistema completamente dinámico y robusto:
 
-* **📦 Empaquetado Nativo (.exe):** Integración con `jpackage` para ofrecer un instalador de Windows tradicional. Ya no es necesario tener Java instalado en el equipo para usar la aplicación.
-* **💾 Persistencia de Datos Segura:** Las tareas ahora se guardan automáticamente en un archivo `tareas.json` ubicado en la carpeta nativa del sistema (`AppData`), protegiendo los datos del usuario durante las actualizaciones.
-* **⏱️ Notificaciones Asíncronas (Multithreading):** Implementación de un "vigilante" en segundo plano que alerta sobre tareas vencidas sin congelar la interfaz gráfica.
-* **🛡️ Mejoras de Experiencia de Usuario (UX):** * Nuevo interruptor (toggle) lógico para marcar y desmarcar tareas completadas, previniendo clics accidentales.
-  * Nuevo ícono oficial e identidad visual integrada en el instalador.
+* **Gestor de Base de Datos Relacional:** Transición de almacenamiento JSON a **SQLite**. Las tareas y categorías ahora se relacionan de forma estructurada, garantizando mayor seguridad, velocidad y escalabilidad.
+* **Renderizado Dinámico de Interfaz:** El menú lateral ha dejado de ser estático. Ahora, la interfaz (JavaFX) genera sus elementos visuales en tiempo real leyendo directamente la base de datos.
+* **Gestor de Listas Personalizadas (CRUD Completo):** 
+  * Crea listas infinitas para organizar tu vida.
+  * Inteligencia de texto: Asignación automática de iconos (`📁`) o soporte para emojis nativos de Windows personalizados (`Windows + .`).
+  * Menú contextual (Clic derecho) para **Renombrar** o **Eliminar** listas directamente desde el panel.
+* **Integridad de Datos y Seguridad:** Sistema de "Eliminación en Cascada" que advierte al usuario sobre la destrucción permanente de tareas internas al borrar una categoría, evitando bases de datos corruptas.
+* **Sincronización de Estado Perfeccionada:** La lógica de la memoria RAM y el trabajador asíncrono en segundo plano (Vigilante de Notificaciones) operan en perfecta sincronía con la base de datos para prevenir bugs visuales o "tareas fantasma".
 
 ## 📥 Instalación (Para Usuarios)
 
