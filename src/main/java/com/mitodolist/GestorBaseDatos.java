@@ -16,6 +16,7 @@ public class GestorBaseDatos {
     
     // JDBC necesita este prefijo para saber qué motor usar
     private static final String RUTA_BD = "jdbc:sqlite:" + CARPETA_APP + File.separator + "mitodolist.db";
+    public static int idUsuarioActual = -1; // -1 significa que nadie ha iniciado sesión aún
 
     /**
      * Establece y devuelve la conexión con la base de datos SQLite.
@@ -43,14 +44,26 @@ public class GestorBaseDatos {
      * y siembra las categorías por defecto si la tabla está vacía.
      */
     public static void inicializarEstructura() {
+        String sqlUsuarios = """
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                pin TEXT NOT NULL,
+                recordar_sesion INTEGER DEFAULT 0
+            );
+        """;
+
         String sqlCategorias = """
             CREATE TABLE IF NOT EXISTS categorias (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nombre TEXT NOT NULL,
-                color TEXT DEFAULT '#FFFFFF'
+                color TEXT DEFAULT '#FFFFFF',
+                id_usuario INTEGER,
+                FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
             );
         """;
 
+        // --- ESTRUCTURA FINAL V4: SOPORTE PARA SUB-TAREAS ---
         String sqlTareas = """
             CREATE TABLE IF NOT EXISTS tareas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,189 +71,184 @@ public class GestorBaseDatos {
                 completada INTEGER DEFAULT 0,
                 fecha_vencimiento TEXT,
                 id_categoria INTEGER,
-                FOREIGN KEY (id_categoria) REFERENCES categorias(id)
+                id_usuario INTEGER,
+                id_tarea_padre INTEGER, 
+                FOREIGN KEY (id_categoria) REFERENCES categorias(id),
+                FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
+                FOREIGN KEY (id_tarea_padre) REFERENCES tareas(id) ON DELETE CASCADE
             );
         """;
 
         try (Connection conn = conectar(); 
              Statement stmt = conn.createStatement()) {
             
+            // Para habilitar el ON DELETE CASCADE en SQLite y que las subtareas 
+            // se borren solas si borramos la tarea principal:
+            stmt.execute("PRAGMA foreign_keys = ON;"); 
+            
+            stmt.execute(sqlUsuarios); 
             stmt.execute(sqlCategorias);
             stmt.execute(sqlTareas);
-            
-            // --- NUEVO: PARCHE PARA ACTUALIZAR NOMBRES CLÁSICOS A EMOJIS EN LA BD ---
-            // Esto buscará los nombres viejos y los reemplazará por la versión con emoji.
-            stmt.execute("UPDATE categorias SET nombre = '📌 Sin categoría' WHERE nombre = 'Sin categoría'");
-            stmt.execute("UPDATE categorias SET nombre = '💼 Trabajo' WHERE nombre = 'Trabajo'");
-            stmt.execute("UPDATE categorias SET nombre = '🎓 Estudios' WHERE nombre = 'Estudios'");
-            stmt.execute("UPDATE categorias SET nombre = '🗣 Idiomas' WHERE nombre = 'Idiomas'");
-            stmt.execute("UPDATE categorias SET nombre = '🎮 Gaming' WHERE nombre = 'Gaming'");
-            stmt.execute("UPDATE categorias SET nombre = '🏡 Hogar / Jardín' WHERE nombre = 'Hogar / Jardín'");
-            
-            // Sembrado de datos (Por si un usuario nuevo instala la app)
-            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM categorias")) {
-                if (rs.next() && rs.getInt(1) == 0) {
-                    // Ahora las inyectamos con emoji desde el día 1
-                    String[] defaultCats = {"📌 Sin categoría", "💼 Trabajo", "🎓 Estudios", "🗣 Idiomas", "🎮 Gaming", "🏡 Hogar / Jardín"};
-                    
-                    try (PreparedStatement insertStmt = conn.prepareStatement("INSERT INTO categorias (nombre) VALUES (?)")) {
-                        for (String cat : defaultCats) {
-                            insertStmt.setString(1, cat);
-                            insertStmt.executeUpdate();
-                        }
-                    }
-                }
-            }
             
         } catch (SQLException e) {
             System.out.println("Error al inicializar la BD: " + e.getMessage());
         }
     }
 
-    /**
-     * Puente de migración: Lee el JSON antiguo, lo pasa a SQLite y respalda el archivo.
+   /**
+     * MIGRACIÓN UNIVERSAL (V3.0.0e -> V4.0.0e)
+     * Inspecciona la estructura de SQLite. Si es antigua, le inyecta las columnas de privacidad y jerarquía.
      */
     public static void migrarDatosAntiguos() {
-        String rutaJson = CARPETA_APP + File.separator + "tareas.json";
-        File archivoViejo = new File(rutaJson);
+        try (Connection conn = conectar();
+             Statement stmt = conn.createStatement()) {
 
-        // Si el archivo JSON no existe, no hay nada que migrar, terminamos aquí.
-        if (!archivoViejo.exists()) {
-            return;
-        }
-
-        System.out.println("Archivo tareas.json detectado. Iniciando migración a SQLite...");
-
-        try (Connection conn = conectar()) {            
-
-            // 2. Leemos las tareas del archivo viejo usando tu Gestor existente
-            GestorArchivos gestorViejo = new GestorArchivos();
-            ArrayList<Tarea> tareasViejas = gestorViejo.cargarTareas();
-
-            if (tareasViejas != null && !tareasViejas.isEmpty()) {
-                // 3. Preparamos el comando SQL para insertar las tareas
-                // Usamos los signos "?" por seguridad (evita Inyección SQL)
-                String sqlInsertar = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, id_categoria) VALUES (?, ?, ?, ?)";
-                
-                try (PreparedStatement pstmt = conn.prepareStatement(sqlInsertar)) {
-                    for (Tarea t : tareasViejas) {
-                        pstmt.setString(1, t.getDescripcion()); // Asigna el texto de la tarea
-                        pstmt.setInt(2, t.isCompletada() ? 1 : 0); // Convierte boolean a 0 o 1
-                        
-                        // Rescatamos la fecha si la tarea tiene una, de lo contrario enviamos null
-                        if (t.getFechaLimite() != null) {
-                            pstmt.setString(3, t.getFechaLimite().toString());
-                        } else {
-                            pstmt.setString(3, null);
-                        } 
-                        
-                        pstmt.setInt(4, obtenerIdCategoria(t.getCategoria()));
-                        
-                        pstmt.executeUpdate(); // Ejecuta la inserción de esta tarea
+            // 1. Verificamos si la tabla 'tareas' ya tiene la nueva columna 'id_usuario'
+            boolean necesitaMigracion = false;
+            try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(tareas)")) {
+                boolean tieneIdUsuario = false;
+                while (rs.next()) {
+                    // Si encuentra el nombre de la columna, la base de datos ya está en la V4
+                    if (rs.getString("name").equals("id_usuario")) {
+                        tieneIdUsuario = true;
+                        break;
                     }
+                }
+                necesitaMigracion = !tieneIdUsuario;
+            }
+
+            // 2. Si no la tiene, es una base de datos V3. ¡Inyectamos las columnas en milisegundos!
+            if (necesitaMigracion) {
+                System.out.println("⚠️ Detectada base de datos V3. Iniciando parche de actualización a V4...");
+                
+                // Agregamos las columnas faltantes (quedarán vacías temporalmente, a la espera de un dueño)
+                stmt.execute("ALTER TABLE categorias ADD COLUMN id_usuario INTEGER");
+                stmt.execute("ALTER TABLE tareas ADD COLUMN id_usuario INTEGER");
+                stmt.execute("ALTER TABLE tareas ADD COLUMN id_tarea_padre INTEGER");
+                
+                System.out.println("✅ ¡Estructura V4 aplicada con éxito! Datos listos para ser adoptados.");
+            } else {
+                // LÓGICA DE LIMPIEZA: Si ya estamos en la V4, eliminamos el viejo tareas.json si aún existe
+                File archivoJson = new File(CARPETA_APP + File.separator + "tareas.json");
+                if (archivoJson.exists()) {
+                    archivoJson.delete(); 
+                    System.out.println("🧹 Archivo tareas.json obsoleto eliminado del sistema.");
                 }
             }
 
-            // 4. Renombramos el archivo JSON (Bloqueo de seguridad)
-            File archivoBackup = new File(CARPETA_APP + File.separator + "tareas_backup_v2.json");
-            if (archivoViejo.renameTo(archivoBackup)) {
-                System.out.println("¡Migración exitosa! El archivo JSON fue respaldado.");
-            } else {
-                System.out.println("Error: No se pudo renombrar el archivo tareas.json");
-            }
-
         } catch (SQLException e) {
-            System.out.println("Error durante la migración: " + e.getMessage());
+            System.out.println("❌ Error crítico durante la migración de la BD: " + e.getMessage());
         }
     }
 
     /**
      * Extrae todas las tareas de SQLite y las devuelve en una lista para la interfaz.
      */
+   // 1. CARGAR TAREAS Y SUB-TAREAS (Reconstrucción del Árbol)
     public static ArrayList<Tarea> cargarTareasDesdeBD() {
-        ArrayList<Tarea> listaTareas = new ArrayList<>();
-        
-        // ¡LA MAGIA DEL JOIN! Le pedimos que una la tabla tareas (t) con la tabla categorias (c)
-        String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, c.nombre AS nombre_categoria " +
+        ArrayList<Tarea> listaPrincipal = new ArrayList<>();
+        java.util.HashMap<Integer, Tarea> mapaTareas = new java.util.HashMap<>();
+        ArrayList<Tarea> subtareasPendientes = new ArrayList<>();
+
+        // Traemos también el id_tarea_padre
+        String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, t.id_tarea_padre, c.nombre AS nombre_categoria " +
                      "FROM tareas t " +
-                     "INNER JOIN categorias c ON t.id_categoria = c.id";
+                     "INNER JOIN categorias c ON t.id_categoria = c.id " +
+                     "WHERE t.id_usuario = ?";
 
         try (Connection conn = conectar();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             
+            pstmt.setInt(1, idUsuarioActual);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Tarea t = new Tarea(rs.getString("descripcion"));
+                    t.setId(rs.getInt("id"));
+                    t.setCompletada(rs.getInt("completada") == 1);
+                    if (rs.getString("fecha_vencimiento") != null) t.setFechaLimite(java.time.LocalDate.parse(rs.getString("fecha_vencimiento")));
+                    t.setCategoria(rs.getString("nombre_categoria"));
 
-            while (rs.next()) {
-                Tarea t = new Tarea(rs.getString("descripcion"));
-                t.setId(rs.getInt("id"));
-                t.setCompletada(rs.getInt("completada") == 1);
-                
-                if (rs.getString("fecha_vencimiento") != null) {
-                    t.setFechaLimite(java.time.LocalDate.parse(rs.getString("fecha_vencimiento")));
+                    // --- LÓGICA DE JERARQUÍA ---
+                    int idPadre = rs.getInt("id_tarea_padre");
+                    if (rs.wasNull()) {
+                        // Es una tarea principal
+                        t.setIdTareaPadre(null);
+                        listaPrincipal.add(t);
+                        mapaTareas.put(t.getId(), t); // La guardamos en el mapa para encontrarla rápido
+                    } else {
+                        // Es una subtarea
+                        t.setIdTareaPadre(idPadre);
+                        subtareasPendientes.add(t); // La dejamos en espera
+                    }
                 }
-
-                // ¡BOOM! Ahora extraemos el nombre real que nos trajo el JOIN
-                t.setCategoria(rs.getString("nombre_categoria"));
-
-                listaTareas.add(t);
             }
+            
+            // Conectamos las subtareas huérfanas con sus padres
+            for (Tarea sub : subtareasPendientes) {
+                Tarea padre = mapaTareas.get(sub.getIdTareaPadre());
+                if (padre != null) {
+                    padre.agregarSubTarea(sub);
+                }
+            }
+            
         } catch (SQLException e) {
             System.out.println("Error al cargar tareas desde SQLite: " + e.getMessage());
         }
-        return listaTareas;
+        
+        // Devolvemos solo las principales, ¡las hijas ya van empaquetadas dentro!
+        return listaPrincipal; 
     }
 
+    // 2. INSERTAR TAREA (Soporta Padres e Hijas)
     public static void insertarTarea(Tarea t, int idCategoria) {
-        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, id_categoria) VALUES (?, ?, ?, ?)";
-        
-        // Statement.RETURN_GENERATED_KEYS nos permite recuperar el ID que SQLite le asigne
+        // Añadimos id_tarea_padre al final
+        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, id_categoria, id_usuario, id_tarea_padre) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
             pstmt.setString(1, t.getDescripcion());
             pstmt.setInt(2, t.isCompletada() ? 1 : 0);
-            
-            if (t.getFechaLimite() != null) {
-                pstmt.setString(3, t.getFechaLimite().toString());
-            } else {
-                pstmt.setString(3, null);
-            }
+            pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
             pstmt.setInt(4, idCategoria);
+            pstmt.setInt(5, idUsuarioActual);
             
-            pstmt.executeUpdate(); // Guardamos en la base de datos
-
-            // Rescatamos el número de placa (ID) que SQLite acaba de inventar y se lo damos al objeto Java
-            try (java.sql.ResultSet rs = pstmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    t.setId(rs.getInt(1)); 
-                }
+            // --- NUEVO: ¿Tiene padre? ---
+            if (t.getIdTareaPadre() != null) {
+                pstmt.setInt(6, t.getIdTareaPadre());
+            } else {
+                pstmt.setNull(6, java.sql.Types.INTEGER);
             }
             
+            pstmt.executeUpdate();
+            try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                if (rs.next()) t.setId(rs.getInt(1)); 
+            }
         } catch (SQLException e) {
             System.out.println("Error al insertar tarea: " + e.getMessage());
         }
     }
 
+    // 3. ACTUALIZAR TAREA (Incluye reasignación de padres)
     public static void actualizarTarea(Tarea t) {
-        // Añadimos id_categoria = ? a la orden SQL
-        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, id_categoria = ? WHERE id = ?";
+        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, id_categoria = ?, id_tarea_padre = ? WHERE id = ?";
         
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, t.getDescripcion());
             pstmt.setInt(2, t.isCompletada() ? 1 : 0);
-            
-            if (t.getFechaLimite() != null) {
-                pstmt.setString(3, t.getFechaLimite().toString());
-            } else {
-                pstmt.setString(3, null);
-            }
-            
-            // Usamos el traductor para convertir el texto de la Tarea al ID de la Base de Datos
+            pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
             pstmt.setInt(4, obtenerIdCategoria(t.getCategoria())); 
             
-            // El QUINTO signo de interrogación es el ID de la tarea
-            pstmt.setInt(5, t.getId()); 
+            // --- NUEVO: ¿Tiene padre? ---
+            if (t.getIdTareaPadre() != null) {
+                pstmt.setInt(5, t.getIdTareaPadre());
+            } else {
+                pstmt.setNull(5, java.sql.Types.INTEGER);
+            }
+            
+            pstmt.setInt(6, t.getId()); 
             
             pstmt.executeUpdate();
             
@@ -263,46 +271,35 @@ public class GestorBaseDatos {
         }
     }
 
-    /**
-     * Extrae todas las categorías guardadas en la base de datos.
-     */
+    // 2. OBTENER CATEGORÍAS (Solo las del usuario logueado)
     public static ArrayList<Categoria> obtenerCategorias() {
         ArrayList<Categoria> listaCategorias = new ArrayList<>();
-        String sql = "SELECT id, nombre, color FROM categorias";
+        String sql = "SELECT id, nombre, color FROM categorias WHERE id_usuario = ?";
 
         try (Connection conn = conectar();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            while (rs.next()) {
-                // Leemos los datos de la fila y creamos el objeto Categoria
-                Categoria cat = new Categoria(
-                    rs.getInt("id"),
-                    rs.getString("nombre"),
-                    rs.getString("color")
-                );
-                listaCategorias.add(cat);
+            pstmt.setInt(1, idUsuarioActual);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    listaCategorias.add(new Categoria(rs.getInt("id"), rs.getString("nombre"), rs.getString("color")));
+                }
             }
-            
         } catch (SQLException e) {
             System.out.println("Error al extraer categorías: " + e.getMessage());
         }
-
         return listaCategorias;
     }
 
-    /**
-     * Inserta una nueva categoría personalizada del usuario.
-     */
+    // 5. INSERTAR CATEGORÍA (Marcada con el dueño)
     public static void insertarCategoria(String nombre, String color) {
-        String sql = "INSERT INTO categorias (nombre, color) VALUES (?, ?)";
-
+        String sql = "INSERT INTO categorias (nombre, color, id_usuario) VALUES (?, ?, ?)";
         try (Connection conn = conectar();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, nombre);
             pstmt.setString(2, color);
-            
+            pstmt.setInt(3, idUsuarioActual); // Se la asignamos al dueño
             pstmt.executeUpdate();
 
         } catch (SQLException e) {
@@ -310,24 +307,34 @@ public class GestorBaseDatos {
         }
     }
 
-    /**
-     * Busca el ID numérico de una categoría a partir de su nombre en texto.
-     */
+    // 3. OBTENER ID DE CATEGORÍA (Corregido: Evita mezclar listas de usuarios distintos)
     public static int obtenerIdCategoria(String nombreCategoria) {
-        String sql = "SELECT id FROM categorias WHERE nombre = ?";
+        String sql = "SELECT id FROM categorias WHERE nombre = ? AND id_usuario = ?";
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, nombreCategoria);
+            pstmt.setInt(2, idUsuarioActual); // Exige que la lista sea de ESTE usuario
+            
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt("id"); // Devuelve el ID si la encuentra
+                    return rs.getInt("id"); 
                 }
             }
+            
+            // Si algo falla, buscamos el ID de la lista "Sin categoría" de ESTE usuario, ya no devolvemos "1" ciegamente.
+            String sqlFallback = "SELECT id FROM categorias WHERE nombre = '📌 Sin categoría' AND id_usuario = ?";
+            try (PreparedStatement pstmtFallback = conn.prepareStatement(sqlFallback)) {
+                pstmtFallback.setInt(1, idUsuarioActual);
+                try (ResultSet rsFallback = pstmtFallback.executeQuery()) {
+                    if (rsFallback.next()) return rsFallback.getInt("id");
+                }
+            }
+            
         } catch (SQLException e) {
             System.out.println("Error al buscar categoría: " + e.getMessage());
         }
-        return 1; // Si algo falla o no existe, la manda a "Sin Categoría" (ID 1)
+        return -1; // Fallo catastrófico
     }
 
     /**
@@ -387,6 +394,289 @@ public class GestorBaseDatos {
             pstmt.executeUpdate();
         } catch (SQLException e) {
             System.out.println("Error al renombrar categoría: " + e.getMessage());
+        }
+    }
+
+    // ==========================================
+    // SISTEMA DE SEGURIDAD Y LOGIN (V4.0.0e)
+    // ==========================================
+
+    /**
+     * Verifica si ya existe un usuario registrado en el sistema.
+     */
+    public static boolean existeUsuarioRegistrado() {
+        String sql = "SELECT COUNT(*) FROM usuarios";
+        try (Connection conn = conectar(); 
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al verificar usuario: " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Guarda el Nombre, el PIN y realiza la "Adopción de Datos" si venimos de la versión V3.
+     */
+    public static void registrarUsuario(String nombre, String pin, boolean recordarSesion) {
+        String sql = "INSERT INTO usuarios (nombre, pin, recordar_sesion) VALUES (?, ?, ?)";
+        try (Connection conn = conectar(); 
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+             Statement stmt = conn.createStatement()) {
+            
+            // 1. Antes de registrar, usamos el radar para ver si hay datos "Huérfanos" (V3)
+            boolean hayHuerfanos = false;
+            try (ResultSet rsHuerfanos = stmt.executeQuery("SELECT COUNT(*) FROM categorias WHERE id_usuario IS NULL")) {
+                if (rsHuerfanos.next() && rsHuerfanos.getInt(1) > 0) {
+                    hayHuerfanos = true;
+                }
+            }
+
+            // 2. Registramos al usuario en la base de datos
+            pstmt.setString(1, nombre);
+            pstmt.setString(2, pin);
+            pstmt.setInt(3, recordarSesion ? 1 : 0);
+            pstmt.executeUpdate();
+            
+            // 3. Rescatamos su ID de usuario y preparamos su entorno
+            try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    idUsuarioActual = rs.getInt(1);
+                    
+                    if (hayHuerfanos) {
+                        // --- MODO ADOPCIÓN: El usuario hereda toda la información antigua ---
+                        System.out.println("🔄 Asignando datos de la V3 al nuevo perfil: " + nombre);
+                        
+                        String adoptarCats = "UPDATE categorias SET id_usuario = ? WHERE id_usuario IS NULL";
+                        String adoptarTareas = "UPDATE tareas SET id_usuario = ? WHERE id_usuario IS NULL";
+                        
+                        try (PreparedStatement pstmtCats = conn.prepareStatement(adoptarCats);
+                             PreparedStatement pstmtTareas = conn.prepareStatement(adoptarTareas)) {
+                            
+                            pstmtCats.setInt(1, idUsuarioActual);
+                            pstmtCats.executeUpdate();
+                            
+                            pstmtTareas.setInt(1, idUsuarioActual);
+                            pstmtTareas.executeUpdate();
+                        }
+                    } else {
+                        // --- MODO NUEVO USUARIO: Le entregamos el Kit de Bienvenida en blanco ---
+                        String[] defaultCats = {"📌 Sin categoría", "💼 Trabajo", "🎓 Estudios", "🗣 Idiomas", "🎮 Gaming", "🏡 Hogar / Jardín"};
+                        String sqlCat = "INSERT INTO categorias (nombre, id_usuario) VALUES (?, ?)";
+                        
+                        try (PreparedStatement insertCat = conn.prepareStatement(sqlCat)) {
+                            for (String cat : defaultCats) {
+                                insertCat.setString(1, cat);
+                                insertCat.setInt(2, idUsuarioActual); 
+                                insertCat.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al registrar usuario: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Recupera el nombre del usuario para mostrarlo en la interfaz.
+     */
+    public static String obtenerNombreUsuario() {
+        // Ahora busca el nombre del usuario exacto que está en RAM, no siempre el "1"
+        String sql = "SELECT nombre FROM usuarios WHERE id = ?";
+        try (Connection conn = conectar(); 
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, idUsuarioActual != -1 ? idUsuarioActual : 1);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("nombre");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al obtener el nombre: " + e.getMessage());
+        }
+        return "Usuario";
+    }
+
+    /**
+     * Verifica si un nombre de usuario específico ya está tomado.
+     */
+    public static boolean existeNombreUsuario(String nombre) {
+        String sql = "SELECT COUNT(*) FROM usuarios WHERE nombre = ?";
+        try (Connection conn = conectar(); 
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, nombre);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al verificar nombre de usuario: " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Autentica a un usuario comprobando que el nombre y el PIN coincidan.
+     */
+    public static boolean autenticarUsuario(String nombre, String pin) {
+        String sql = "SELECT id FROM usuarios WHERE nombre = ? AND pin = ?";
+        try (Connection conn = conectar(); 
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, nombre);
+            pstmt.setString(2, pin);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    idUsuarioActual = rs.getInt("id"); // ¡Identificamos quién acaba de entrar!
+                    return true; 
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al autenticar: " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Borra el token de "Recordar sesión" para obligar a pedir credenciales la próxima vez.
+     */
+    public static void revocarRecordarSesion() {
+        String sql = "UPDATE usuarios SET recordar_sesion = 0";
+        try (Connection conn = conectar(); 
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate(sql);
+        } catch (SQLException e) {
+            System.out.println("Error al revocar sesión: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Revisa si algún usuario marcó la casilla de "Recordar sesión".
+     */
+    public static boolean isSesionRecordada() {
+        // Buscamos si ALGÚN usuario dejó su sesión recordada
+        String sql = "SELECT id FROM usuarios WHERE recordar_sesion = 1 LIMIT 1";
+        try (Connection conn = conectar(); 
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            if (rs.next()) {
+                idUsuarioActual = rs.getInt("id"); // ¡Auto-login! Ya sabemos quién es.
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al leer estado de sesión: " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * --- NUEVO MÉTODO PARA CORREGIR EL BUG DE LOGIN ---
+     */
+    public static void actualizarTokenSesion(boolean recordar) {
+        if (idUsuarioActual == -1) return;
+        
+        // Primero apagamos la sesión para TODOS (solo 1 usuario puede tener auto-login activo)
+        revocarRecordarSesion();
+        
+        // Si el usuario pidió recordar sesión, encendemos solo la suya
+        if (recordar) {
+            String sql = "UPDATE usuarios SET recordar_sesion = 1 WHERE id = ?";
+            try (Connection conn = conectar(); 
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, idUsuarioActual);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                System.out.println("Error al actualizar token: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Motor de Backups Automáticos (V4.0.0e)
+     * Crea un respaldo diario y aplica una Política de Retención de máximo 3 archivos.
+     */
+    public static void realizarBackup() {
+        try {
+            // 1. Creamos la subcarpeta de respaldos dentro de MiTodoList
+            File carpetaBackups = new File(CARPETA_APP + File.separator + "backups");
+            if (!carpetaBackups.exists()) {
+                carpetaBackups.mkdirs();
+            }
+
+            // 2. Definimos las rutas del archivo original y del nuevo backup
+            File bdOriginal = new File(CARPETA_APP + File.separator + "mitodolist.db");
+            String fechaHoy = java.time.LocalDate.now().toString();
+            File bdBackup = new File(carpetaBackups.getAbsolutePath() + File.separator + "mitodolist_backup_" + fechaHoy + ".db");
+
+            // 3. Ejecutamos la copia diaria
+            if (bdOriginal.exists() && !bdBackup.exists()) {
+                java.nio.file.Files.copy(bdOriginal.toPath(), bdBackup.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("🛡️ Backup automático creado: " + bdBackup.getName());
+            } else if (bdBackup.exists()) {
+                System.out.println("✅ El backup de hoy ya estaba garantizado.");
+            }
+
+            // --- 4. LÓGICA DE ROTACIÓN (Limpieza de espacio) ---
+            // Leemos todos los archivos dentro de la carpeta de backups
+            File[] archivosBackup = carpetaBackups.listFiles((dir, nombre) -> nombre.startsWith("mitodolist_backup_") && nombre.endsWith(".db"));
+            
+            if (archivosBackup != null && archivosBackup.length > 3) {
+                // Ordenamos los archivos cronológicamente (del más viejo al más reciente)
+                java.util.Arrays.sort(archivosBackup, java.util.Comparator.comparingLong(File::lastModified));
+                
+                // Calculamos cuántos archivos sobran y los destruimos
+                int archivosSobrantes = archivosBackup.length - 3;
+                for (int i = 0; i < archivosSobrantes; i++) {
+                    if (archivosBackup[i].delete()) {
+                        System.out.println("🧹 Backup antiguo eliminado para liberar espacio: " + archivosBackup[i].getName());
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            System.out.println("❌ Error crítico al realizar el backup automático: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Motor de Auto-Restauración (V4.0.0e)
+     * Si la BD principal no existe o se corrompe (fue borrada), busca el backup más reciente y lo restaura.
+     */
+    public static void restaurarBackupSiEsNecesario() {
+        File bdOriginal = new File(CARPETA_APP + File.separator + "mitodolist.db");
+        
+        if (!bdOriginal.exists()) {
+            System.out.println("⚠️ Archivo de base de datos no encontrado. Buscando respaldos...");
+            File carpetaBackups = new File(CARPETA_APP + File.separator + "backups");
+            
+            if (carpetaBackups.exists()) {
+                File[] archivosBackup = carpetaBackups.listFiles((dir, nombre) -> nombre.startsWith("mitodolist_backup_") && nombre.endsWith(".db"));
+                
+                if (archivosBackup != null && archivosBackup.length > 0) {
+                    // Ordenamos para obtener el MÁS RECIENTE (Invertimos el orden cronológico)
+                    java.util.Arrays.sort(archivosBackup, java.util.Comparator.comparingLong(File::lastModified).reversed());
+                    File ultimoBackup = archivosBackup[0];
+                    
+                    try {
+                        java.nio.file.Files.copy(ultimoBackup.toPath(), bdOriginal.toPath());
+                        System.out.println("🔄 ¡Éxito! Base de datos restaurada automáticamente desde: " + ultimoBackup.getName());
+                    } catch (Exception e) {
+                        System.out.println("❌ Error crítico al restaurar backup: " + e.getMessage());
+                    }
+                } else {
+                    System.out.println("No se encontraron respaldos. Se creará una base de datos en blanco.");
+                }
+            }
         }
     }
 

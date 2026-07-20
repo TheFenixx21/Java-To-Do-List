@@ -116,6 +116,47 @@ public class ToDoList {
         return false;
     }
 
+    /**
+     * --- NUEVO V4: CRUD PARA SUBTAREAS ---
+     */
+    public boolean agregarSubTarea(int indicePadre, String descripcion) {
+        if (existeTarea(indicePadre)) {
+            Tarea tareaPadre = tareas.get(indicePadre - 1);
+            
+            // Creamos la subtarea
+            Tarea nuevaSub = new Tarea(descripcion);
+            nuevaSub.setIdTareaPadre(tareaPadre.getId()); // Le asignamos su progenitor
+            nuevaSub.setCategoria(tareaPadre.getCategoria()); // Hereda la categoría del padre
+            
+            // La guardamos en RAM
+            tareaPadre.agregarSubTarea(nuevaSub);
+            
+            // La guardamos en la Base de Datos
+            GestorBaseDatos.insertarTarea(nuevaSub, GestorBaseDatos.obtenerIdCategoria(tareaPadre.getCategoria()));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Elimina directamente una subtarea basándose en su ID real de base de datos
+     */
+    public boolean eliminarSubTarea(Tarea tareaPadre, Tarea subTarea) {
+        if (tareaPadre.getSubTareas().remove(subTarea)) {
+            GestorBaseDatos.eliminarTareaBD(subTarea.getId());
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Cambia el estado (completado/pendiente) de una subtarea directamente
+     */
+    public void alternarEstadoSubTarea(Tarea subTarea) {
+        subTarea.setCompletada(!subTarea.isCompletada());
+        GestorBaseDatos.actualizarTarea(subTarea);
+    }
+
     //Reporte matutino
     public String generarReporteMatutino() {
         if (tareas.isEmpty()) {
@@ -200,45 +241,44 @@ public class ToDoList {
         }
         return resultado;
     }
-   // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (VIGILANTE RECURRENTE) ---
+  // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (VIGILANTE RECURRENTE) ---
     private void iniciarVigilanteNotificaciones() {
         Thread vigilante = new Thread(() -> {
             
-            int minutosTranscurridos = 0; // NUEVO: Nuestro cronómetro interno
+            int minutosTranscurridos = 0; 
 
             while (true) { 
                 try {
                     java.time.LocalDate hoy = java.time.LocalDate.now();
 
-                    // 1. Cada 15 minutos, "olvidamos" que ya notificamos las tareas pendientes de hoy
+                    // 1. Reseteo de 15 minutos (Escaneamos Madres e Hijas)
                     if (minutosTranscurridos >= 15) {
-                        for (Tarea t : tareas) {
-                            if (!t.isCompletada() && t.getFechaLimite() != null && t.getFechaLimite().isEqual(hoy)) {
-                                t.setNotificada(false); // La reseteamos para que vuelva a sonar
-                                GestorBaseDatos.actualizarTarea(t);
+                        for (Tarea principal : tareas) {
+                            resetearNotificacionSiEsHoy(principal, hoy);
+                            
+                            if (principal.getSubTareas() != null) {
+                                for (Tarea hija : principal.getSubTareas()) {
+                                    resetearNotificacionSiEsHoy(hija, hoy);
+                                }
                             }
                         }
-                        minutosTranscurridos = 0; // Reiniciamos el cronómetro
+                        minutosTranscurridos = 0; 
                     }
 
-                    // 2. Revisamos silenciosamente todas las tareas
-                    for (Tarea t : tareas) {
-                        if (!t.isCompletada() && t.getFechaLimite() != null) {
-                            if (t.getFechaLimite().isEqual(hoy) && !t.isNotificada()) {
-                                // ¡Lanzamos la alerta a Windows!
-                                enviarNotificacionWindows("⏰ Tarea pendiente", t.getDescripcion());
-                                
-                                // Marcamos que ya le avisamos al usuario
-                                t.setNotificada(true);
-                                GestorBaseDatos.actualizarTarea(t); 
+                    // 2. Revisión de Notificaciones (Escaneamos Madres e Hijas)
+                    for (Tarea principal : tareas) {
+                        // A la madre no le pasamos ningún padre (null)
+                        evaluarYLanzarNotificacion(principal, null, hoy);
+                        
+                        if (principal.getSubTareas() != null) {
+                            for (Tarea hija : principal.getSubTareas()) {
+                                // A la hija sí le pasamos su madre para el contexto
+                                evaluarYLanzarNotificacion(hija, principal, hoy);
                             }
                         }
                     }
 
-                    // 3. Mandamos al vigilante a dormir por 1 minuto (60,000 milisegundos)
                     Thread.sleep(60000); 
-                    
-                    // 4. Sumamos 1 minuto a nuestro cronómetro al despertar
                     minutosTranscurridos++; 
 
                 } catch (InterruptedException e) {
@@ -252,6 +292,36 @@ public class ToDoList {
         vigilante.setDaemon(true);
         vigilante.start();
     }
+
+    // --- MÉTODOS DE AYUDA (HELPER METHODS) PARA MANTENER EL CÓDIGO LIMPIO ---
+    
+    private void resetearNotificacionSiEsHoy(Tarea t, java.time.LocalDate hoy) {
+        if (!t.isCompletada() && t.getFechaLimite() != null && t.getFechaLimite().isEqual(hoy)) {
+            t.setNotificada(false); 
+            GestorBaseDatos.actualizarTarea(t);
+        }
+    }
+
+    private void evaluarYLanzarNotificacion(Tarea t, Tarea tareaPadre, java.time.LocalDate hoy) {
+        if (!t.isCompletada() && t.getFechaLimite() != null) {
+            if (t.getFechaLimite().isEqual(hoy) && !t.isNotificada()) {
+                
+                String titulo = "⏰ Tarea pendiente";
+                String mensaje = t.getDescripcion();
+                
+                // Si el método recibió una "tareaPadre", agregamos el contexto automáticamente
+                if (tareaPadre != null) {
+                    mensaje = t.getDescripcion() + " (Pertenece a: " + tareaPadre.getDescripcion() + ")";
+                }
+                
+                enviarNotificacionWindows(titulo, mensaje);
+                
+                t.setNotificada(true);
+                GestorBaseDatos.actualizarTarea(t); 
+            }
+        }
+    }
+
     // --- V2.0.0e: MOTOR DE NOTIFICACIONES NATIVAS ---
     public void enviarNotificacionWindows(String titulo, String mensaje) {
         // 1. Verificamos si el sistema operativo soporta notificaciones de bandeja

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.Cursor?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.DatePicker?>
@@ -26,7 +27,10 @@
             <Region prefHeight="329.0" prefWidth="180.0" VBox.vgrow="ALWAYS" />
             <HBox alignment="CENTER" prefHeight="43.0" prefWidth="180.0">
                <children>
-                  <Button mnemonicParsing="false" onAction="#accionCrearNuevaCategoria" prefHeight="38.0" prefWidth="103.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 14px;" text="+Nueva lista" textFill="WHITE" />
+                  <Button mnemonicParsing="false" onAction="#accionCrearNuevaCategoria" prefHeight="38.0" prefWidth="103.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 14px;" text="+Nueva lista" textFill="WHITE">
+                     <cursor>
+                        <Cursor fx:constant="HAND" />
+                     </cursor></Button>
                </children>
                <VBox.margin>
                   <Insets bottom="30.0" />
@@ -47,6 +51,18 @@
             <Label fx:id="lblCompletadas" layoutX="10.0" layoutY="82.0" style="-fx-text-fill: white; -fx-font-size: 15px;" text="Completadas: 0" />
             <Label fx:id="lblAtrasadas" layoutX="10.0" layoutY="114.0" style="-fx-text-fill: white; -fx-font-size: 15px;" text="Atrasadas: 0" />
             <TextArea fx:id="txtNotasRapidas" prefHeight="200.0" prefWidth="200.0" promptText="Notas Rápidas:" style="-fx-control-inner-background: #1A1A1A; -fx-text-fill: white; -fx-background-color: transparent; -fx-prompt-text-fill: #888888;" VBox.vgrow="ALWAYS" />
+            <HBox alignment="CENTER" prefHeight="43.0" prefWidth="180.0">
+               <children>
+                  <Button mnemonicParsing="false" onAction="#accionCerrarSesion" prefHeight="38.0" prefWidth="103.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 12px;" text="Cerrar sesión" textFill="WHITE">
+                     <cursor>
+                        <Cursor fx:constant="HAND" />
+                     </cursor>
+                  </Button>
+               </children>
+               <padding>
+                  <Insets bottom="35.0" />
+               </padding>
+            </HBox>
          </children>
       </VBox>
    </right>
@@ -60,7 +76,10 @@
             <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
                <children>
                   <TextField fx:id="txtNuevaTarea" promptText="¡Hola!¿Qué tarea tenemos hoy?" style="-fx-background-color: #1A1A1A; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 15; -fx-font-size: 15px;" HBox.hgrow="ALWAYS" />
-                  <Button fx:id="btnAgregar1" layoutX="775.0" layoutY="41.0" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 17px;" text="+" textFill="WHITE" />
+                  <Button fx:id="btnAgregar1" layoutX="775.0" layoutY="41.0" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 17px;" text="+" textFill="WHITE">
+                     <cursor>
+                        <Cursor fx:constant="HAND" />
+                     </cursor></Button>
                </children>
             </HBox>
          </children>
