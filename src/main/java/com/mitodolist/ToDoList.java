@@ -4,7 +4,28 @@ import java.util.ArrayList;
 public class ToDoList {
     
     private ArrayList<Tarea> tareas;
-    //private GestorArchivos gestor;
+
+    // --- V5.0.0e: MOTOR DE ORDENAMIENTO INTELIGENTE ---
+    public static final java.util.Comparator<Tarea> ORDENADOR_TAREAS = (t1, t2) -> {
+        // Regla 1: Las completadas SIEMPRE van al fondo de la lista
+        if (t1.isCompletada() != t2.isCompletada()) {
+            return t1.isCompletada() ? 1 : -1; // Si t1 está completada, la empuja hacia abajo (+1)
+        }
+
+        // Regla 2: Si ambas están pendientes (o ambas completadas), comparamos sus fechas
+        java.time.LocalDate fecha1 = t1.getFechaLimite();
+        java.time.LocalDate fecha2 = t2.getFechaLimite();
+
+        // Si ninguna tiene fecha, se quedan donde están
+        if (fecha1 == null && fecha2 == null) return 0;
+        
+        // Las tareas SIN fecha se van al fondo (justo por encima de las completadas)
+        if (fecha1 == null) return 1; 
+        if (fecha2 == null) return -1;
+
+        // Orden Cronológico: Las fechas más antiguas/urgentes van arriba, las futuras hacia abajo.
+        return fecha1.compareTo(fecha2);
+    };
 
     public ToDoList() {
         // Le pedimos al nuevo motor que vaya a SQLite y traiga las tareas
@@ -53,89 +74,54 @@ public class ToDoList {
         GestorBaseDatos.insertarTarea(nueva, GestorBaseDatos.obtenerIdCategoria(categoria)); 
     }
 
-    public boolean alternarEstadoTarea(int indice) {
-        if (existeTarea(indice)) {
-            Tarea t = tareas.get(indice - 1);
-            boolean nuevoEstado = !t.isCompletada();
-            t.setCompletada(nuevoEstado);
-            
-            if (!nuevoEstado) {
-                t.setNotificada(false);
-            }
-            
-            // Usamos el bisturí UPDATE para actualizar SÓLO esta tarea en la base de datos
-            GestorBaseDatos.actualizarTarea(t);
-            return true;
-        }
-        return false;
-    }
+    // ==========================================
+    // MÉTODOS CRUD BASADOS EN OBJETOS (V5.0.0e)
+    // ==========================================
 
-    public boolean eliminarTarea(int indice) {
-        if (existeTarea(indice)) {
-            // 1. Sacamos la tarea de la memoria RAM y la capturamos en la variable 't'
-            Tarea t = tareas.remove(indice - 1);
-            
-            // 2. Le pasamos el número de placa (ID) al bisturí DELETE de SQLite
-            GestorBaseDatos.eliminarTareaBD(t.getId());
-            return true;
-        }
-        return false;
-    }
-
-    public boolean editarTarea(int indice, String nuevaDescripcion) {
-        if (existeTarea(indice)) {
-            Tarea t = tareas.get(indice - 1);
-            t.setDescripcion(nuevaDescripcion);
-            
-            GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE
-            return true;
-        }
-        return false;
-    }
-
-    public boolean editarFechaLimite(int indice, java.time.LocalDate nuevaFecha) {
-        if (existeTarea(indice)) {
-            Tarea t = tareas.get(indice - 1);
-            t.setFechaLimite(nuevaFecha);
+    public void alternarEstadoTarea(Tarea t) {
+        boolean nuevoEstado = !t.isCompletada();
+        t.setCompletada(nuevoEstado);
+        
+        if (!nuevoEstado) {
             t.setNotificada(false);
-            
-            GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE
-            return true;
         }
-        return false;
+        GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE exacto
     }
 
-    public boolean editarCategoria(int indice, String nuevaCategoria) {
-        if (existeTarea(indice)) {
-            Tarea t = tareas.get(indice - 1);
-            t.setCategoria(nuevaCategoria);
-            
-            GestorBaseDatos.actualizarTarea(t); // Bisturí UPDATE
-            return true;
-        }
-        return false;
+    public void eliminarTarea(Tarea t) {
+        // Al pasarle el objeto, Java busca su referencia exacta en RAM y la borra sin importar el orden
+        tareas.remove(t); 
+        // Le pasamos su placa única (ID) a SQLite
+        GestorBaseDatos.eliminarTareaBD(t.getId());
     }
 
-    /**
-     * --- NUEVO V4: CRUD PARA SUBTAREAS ---
-     */
-    public boolean agregarSubTarea(int indicePadre, String descripcion) {
-        if (existeTarea(indicePadre)) {
-            Tarea tareaPadre = tareas.get(indicePadre - 1);
-            
-            // Creamos la subtarea
-            Tarea nuevaSub = new Tarea(descripcion);
-            nuevaSub.setIdTareaPadre(tareaPadre.getId()); // Le asignamos su progenitor
-            nuevaSub.setCategoria(tareaPadre.getCategoria()); // Hereda la categoría del padre
-            
-            // La guardamos en RAM
-            tareaPadre.agregarSubTarea(nuevaSub);
-            
-            // La guardamos en la Base de Datos
-            GestorBaseDatos.insertarTarea(nuevaSub, GestorBaseDatos.obtenerIdCategoria(tareaPadre.getCategoria()));
-            return true;
-        }
-        return false;
+    public void editarTarea(Tarea t, String nuevaDescripcion) {
+        t.setDescripcion(nuevaDescripcion);
+        GestorBaseDatos.actualizarTarea(t);
+    }
+
+    public void editarFechaLimite(Tarea t, java.time.LocalDate nuevaFecha) {
+        t.setFechaLimite(nuevaFecha);
+        t.setNotificada(false);
+        GestorBaseDatos.actualizarTarea(t);
+    }
+
+    public void editarCategoria(Tarea t, String nuevaCategoria) {
+        t.setCategoria(nuevaCategoria);
+        GestorBaseDatos.actualizarTarea(t);
+    }
+
+    public void agregarSubTarea(Tarea tareaPadre, String descripcion) {
+        // Creamos la subtarea
+        Tarea nuevaSub = new Tarea(descripcion);
+        nuevaSub.setIdTareaPadre(tareaPadre.getId()); 
+        nuevaSub.setCategoria(tareaPadre.getCategoria()); 
+        
+        // La guardamos en RAM
+        tareaPadre.agregarSubTarea(nuevaSub);
+        
+        // La guardamos en SQLite
+        GestorBaseDatos.insertarTarea(nuevaSub, GestorBaseDatos.obtenerIdCategoria(tareaPadre.getCategoria()));
     }
 
     /**
@@ -234,13 +220,18 @@ public class ToDoList {
             // 2. ¿Cumple con la categoría elegida en el menú lateral?
             boolean incluirPorCategoria = categoriaDeseada.equals("Todas") || tareaActual.getCategoria().equals(categoriaDeseada);
 
-            // Si pasa ambas pruebas, se muestra en pantalla
+            // Si pasa ambas pruebas, se guarda en el resultado
             if (incluirPorFiltro && incluirPorCategoria) {
                 resultado.add(tareaActual);
             }
         }
+        
+        // --- APLICAMOS EL ORDENAMIENTO ANTES DE ENVIARLAS A LA PANTALLA ---
+        resultado.sort(ORDENADOR_TAREAS);
+        
         return resultado;
     }
+    
   // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (VIGILANTE RECURRENTE) ---
     private void iniciarVigilanteNotificaciones() {
         Thread vigilante = new Thread(() -> {

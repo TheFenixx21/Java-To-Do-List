@@ -29,6 +29,9 @@ public class VentanaController {
     @FXML private Label lblAtrasadas;
     @FXML private TextArea txtNotasRapidas;
     @FXML private javafx.scene.layout.VBox contenedorCategorias;
+    @FXML private TextField txtBuscador;
+    @FXML private DatePicker calendarioFiltro;
+    @FXML private Button btnLimpiarFiltros;
 
     private ToDoList logica = new ToDoList();
     private int filtroActual = 1;
@@ -36,13 +39,21 @@ public class VentanaController {
 
     @FXML
     public void initialize() {
-        comboFiltros.getItems().addAll("Todas las tareas", "⏳ Pendientes", "✅ Completadas", "⚠️ Atrasadas");
+        comboFiltros.getItems().addAll("Todas las tareas", "⏳ Pendientes", "✅ Completadas", "⚠ Atrasadas");
         comboFiltros.getSelectionModel().selectFirst();
         
         comboFiltros.setOnAction(evento -> {
             filtroActual = comboFiltros.getSelectionModel().getSelectedIndex() + 1;
             actualizarInterfaz();
         });
+
+        // --- ESCÁNER EN TIEMPO REAL ---
+        if (txtBuscador != null) {
+            txtBuscador.textProperty().addListener((observable, oldValue, newValue) -> actualizarInterfaz());
+        }
+        if (calendarioFiltro != null) {
+            calendarioFiltro.valueProperty().addListener((observable, oldValue, newValue) -> actualizarInterfaz());
+        }
 
         // --- MENÚ CONTEXTUAL V4.0.0e ---
         ContextMenu menuClickDerecho = new ContextMenu();
@@ -53,16 +64,16 @@ public class VentanaController {
         MenuItem menuAgregarSub = new MenuItem("➕ Agregar Sub-tarea");
         menuAgregarSub.setOnAction(e -> accionAgregarSubTarea());
 
-        MenuItem menuEditarDesc = new MenuItem("✏️ Editar Descripción");
+        MenuItem menuEditarDesc = new MenuItem("🖊 Editar Descripción");
         menuEditarDesc.setOnAction(e -> accionEditarDescripcion());
         
         MenuItem menuEditarFecha = new MenuItem("📅 Editar Fecha Límite");
         menuEditarFecha.setOnAction(e -> accionEditarFecha());
 
-        MenuItem menuEliminar = new MenuItem("🗑️ Eliminar");
+        MenuItem menuEliminar = new MenuItem("🗑 Eliminar");
         menuEliminar.setOnAction(e -> accionEliminar());
 
-        MenuItem menuEditarCat = new MenuItem("🗂️ Editar Categoría (Solo principal)");
+        MenuItem menuEditarCat = new MenuItem("🗂 Editar Categoría (Solo principal)");
         menuEditarCat.setOnAction(e -> accionEditarCategoria());
        
 
@@ -98,14 +109,23 @@ public class VentanaController {
                     boolean esSubtarea = tareaActual.getIdTareaPadre() != null;
 
                     // 2. Aplicamos textos y estilos base
-                    if (esSubtarea) {
-                        setText("      ↳ " + estado + " " + tareaActual.getDescripcion() + textoFecha);
-                        setStyle("-fx-text-fill: #AAAAAA; -fx-font-size: 14px;"); // Hija: Gris y más pequeña
-                    } else {
-                        int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(tareaActual) + 1;
-                        setText(idReal + ". " + estado + " " + tareaActual.getDescripcion() + textoFecha);
-                        setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"); // Padre: Blanca y fuerte
+                if (esSubtarea) {
+                    setText("      ↳ " + estado + " " + tareaActual.getDescripcion() + textoFecha);
+                    setStyle("-fx-text-fill: #AAAAAA; -fx-font-size: 14px;"); // Hija: Gris y más pequeña
+                } else {
+                    // --- CORRECCIÓN V5.0.0e: ENUMERACIÓN VISUAL DINÁMICA ---
+                    int numeroVisual = 1;
+                    // Contamos cuántas tareas principales hay ANTES de esta en la pantalla actual
+                    for (int i = 0; i < getIndex(); i++) {
+                        Tarea tAnterior = getListView().getItems().get(i);
+                        if (tAnterior.getIdTareaPadre() == null) {
+                            numeroVisual++;
+                        }
                     }
+                    
+                    setText(numeroVisual + ". " + estado + " " + tareaActual.getDescripcion() + textoFecha);
+                    setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"); // Padre: Blanca y fuerte
+                }
 
                     // 3. El Indicador Visual (Círculo de estado unificado)
                     javafx.scene.shape.Circle indicador = new javafx.scene.shape.Circle(esSubtarea ? 4 : 6); 
@@ -130,7 +150,10 @@ public class VentanaController {
                         
                         // Le enseñamos qué hacer al darle clic
                         btnToggle.setOnAction(e -> {
-                            tareaActual.setExpandida(!tareaActual.isExpandida());
+                            tareaActual.setExpandida(!tareaActual.isExpandida());                            
+                            // NUEVO: Usamos el bisturí para guardar la preferencia en el disco de inmediato
+                            GestorBaseDatos.actualizarTarea(tareaActual);
+                            
                             actualizarInterfaz(); // Recarga la lista para mostrar/ocultar las hijas
                         });
 
@@ -155,13 +178,30 @@ public class VentanaController {
    private void actualizarInterfaz() {
         listaTareas.getItems().clear();
         
+        // 1. Obtenemos las tareas pre-filtradas (Pendientes/Completadas y Categoría)
         ArrayList<Tarea> listaPrincipales = logica.obtenerTareasFiltradas(filtroActual, categoriaActual);
         
+        // 2. Capturamos lo que el usuario escribió (Si los campos ya cargaron)
+        String textoBusqueda = (txtBuscador != null && txtBuscador.getText() != null) ? txtBuscador.getText().toLowerCase().trim() : "";
+        java.time.LocalDate fechaFiltro = (calendarioFiltro != null) ? calendarioFiltro.getValue() : null;
+        
         for (Tarea principal : listaPrincipales) {
+            
+            // --- FILTRADO DINÁMICO ---
+            boolean coincideTexto = textoBusqueda.isEmpty() || principal.getDescripcion().toLowerCase().contains(textoBusqueda);
+            boolean coincideFecha = fechaFiltro == null || (principal.getFechaLimite() != null && principal.getFechaLimite().isEqual(fechaFiltro));
+            
+            // Si la tarea NO cumple, la saltamos
+            if (!coincideTexto || !coincideFecha) {
+                continue; 
+            }
+            
             listaTareas.getItems().add(principal); 
             
-            // LÓGICA V4.0.0e: Solo mostramos las hijas si la madre está "expandida"
+            // LÓGICA V5.0.0e: Si la madre está expandida y tiene hijas
             if (principal.isExpandida() && principal.getSubTareas() != null && !principal.getSubTareas().isEmpty()) {
+                // Ordenamos a las hijas y las mostramos
+                principal.getSubTareas().sort(ToDoList.ORDENADOR_TAREAS);
                 listaTareas.getItems().addAll(principal.getSubTareas());
             }
         }
@@ -169,20 +209,6 @@ public class VentanaController {
         lblPendientes.setText("Pendientes: " + logica.contarPendientes());
         lblCompletadas.setText("Completadas: " + logica.contarCompletadas());
         lblAtrasadas.setText("Atrasadas: " + logica.contarAtrasadas());
-    }
-
-    // --- NUEVA ACCIÓN PARA EL MENÚ CONTEXTUAL ---
-    private void accionAlternarDespliegue() {
-        Tarea seleccionada = listaTareas.getSelectionModel().getSelectedItem();
-        if (seleccionada != null) {
-            if (seleccionada.getIdTareaPadre() == null) {
-                // Solo las tareas principales se pueden plegar/desplegar
-                seleccionada.setExpandida(!seleccionada.isExpandida());
-                actualizarInterfaz(); // Recargamos la pantalla al instante
-            } else {
-                mostrarAlertaRapida("Información", "Esta acción es solo para tareas principales.");
-            }
-        }
     }
 
     private void cargarMenuLateral() {
@@ -204,10 +230,10 @@ public class VentanaController {
             if (cat.getId() != GestorBaseDatos.obtenerIdCategoria("📌 Sin categoría")) { // Protegemos su lista default personal
                 javafx.scene.control.ContextMenu menuLista = new javafx.scene.control.ContextMenu();
                 
-                javafx.scene.control.MenuItem menuRenombrar = new javafx.scene.control.MenuItem("✏️ Renombrar Lista");
+                javafx.scene.control.MenuItem menuRenombrar = new javafx.scene.control.MenuItem("🖊 Renombrar Lista");
                 menuRenombrar.setOnAction(eventoClick -> accionRenombrarCategoria(cat));
                 
-                javafx.scene.control.MenuItem menuEliminar = new javafx.scene.control.MenuItem("🗑️ Eliminar Lista");
+                javafx.scene.control.MenuItem menuEliminar = new javafx.scene.control.MenuItem("🗑 Eliminar Lista");
                 menuEliminar.setOnAction(eventoClick -> accionEliminarCategoria(cat));
                 
                 menuLista.getItems().addAll(menuRenombrar, menuEliminar);
@@ -235,6 +261,8 @@ public class VentanaController {
             dialogo.setHeaderText("Has creado: '" + texto + "'");
             dialogo.setContentText("¿En qué lista deseas guardarla?");
 
+            aplicarTemaOscuro(dialogo);
+
             java.util.Optional<String> resultado = dialogo.showAndWait();
 
             if (resultado.isPresent()) {
@@ -248,12 +276,11 @@ public class VentanaController {
         }
     }
 
-    // --- ACCIONES DEL CLICK DERECHO REESCRITAS PARA JERARQUÍA ---
+    // --- ACCIONES DEL CLICK DERECHO REESCRITAS PARA JERARQUÍA (V5.0.0e) ---
 
     private void accionAgregarSubTarea() {
         Tarea seleccionada = listaTareas.getSelectionModel().getSelectedItem();
         if (seleccionada != null) {
-            // Verificamos que no sea ya una subtarea (evitar Inception)
             if (seleccionada.getIdTareaPadre() != null) {
                 mostrarAlertaRapida("Acción no permitida", "No puedes agregar una subtarea dentro de otra subtarea.");
                 return;
@@ -263,12 +290,12 @@ public class VentanaController {
             dialogo.setTitle("Nueva Sub-tarea");
             dialogo.setHeaderText("Agregando paso a: " + seleccionada.getDescripcion());
             dialogo.setContentText("Descripción de la sub-tarea:");
+            aplicarTemaOscuro(dialogo);
 
             Optional<String> resultado = dialogo.showAndWait();
             resultado.ifPresent(desc -> {
                 if (!desc.trim().isEmpty()) {
-                    int indiceReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(seleccionada) + 1;
-                    logica.agregarSubTarea(indiceReal, desc.trim());
+                    logica.agregarSubTarea(seleccionada, desc.trim()); // Pasamos el objeto directo
                     actualizarInterfaz();
                 }
             });
@@ -279,10 +306,9 @@ public class VentanaController {
         Tarea seleccionada = listaTareas.getSelectionModel().getSelectedItem();
         if (seleccionada != null) {
             if (seleccionada.getIdTareaPadre() != null) {
-                logica.alternarEstadoSubTarea(seleccionada); // Acción exclusiva para hijas
+                logica.alternarEstadoSubTarea(seleccionada); 
             } else {
-                int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(seleccionada) + 1;
-                logica.alternarEstadoTarea(idReal); // Acción para madres
+                logica.alternarEstadoTarea(seleccionada); // Pasamos el objeto directo
             }
             actualizarInterfaz();
         }
@@ -292,14 +318,12 @@ public class VentanaController {
         Tarea seleccionada = listaTareas.getSelectionModel().getSelectedItem();
         if (seleccionada != null) {
             if (seleccionada.getIdTareaPadre() != null) {
-                // Buscamos quién es su madre para desconectarla
                 Tarea padre = encontrarPadre(seleccionada);
                 if (padre != null) {
                     logica.eliminarSubTarea(padre, seleccionada);
                 }
             } else {
-                int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(seleccionada) + 1;
-                logica.eliminarTarea(idReal);
+                logica.eliminarTarea(seleccionada); // Pasamos el objeto directo, adiós a las decapitaciones aleatorias
             }
             actualizarInterfaz();
         }
@@ -312,16 +336,16 @@ public class VentanaController {
             dialogo.setTitle("Editar Tarea");
             dialogo.setHeaderText("Modifica la descripción:");
             dialogo.setContentText("Nueva descripción:");
+            aplicarTemaOscuro(dialogo);
 
             Optional<String> resultado = dialogo.showAndWait();
             resultado.ifPresent(nuevaDesc -> {
                 if (!nuevaDesc.trim().isEmpty()) {
                     if (seleccionada.getIdTareaPadre() != null) {
                         seleccionada.setDescripcion(nuevaDesc);
-                        GestorBaseDatos.actualizarTarea(seleccionada); // Directo al bisturí
+                        GestorBaseDatos.actualizarTarea(seleccionada); 
                     } else {
-                        int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(seleccionada) + 1;
-                        logica.editarTarea(idReal, nuevaDesc);
+                        logica.editarTarea(seleccionada, nuevaDesc); // Pasamos el objeto directo
                     }
                     actualizarInterfaz();
                 }
@@ -334,22 +358,63 @@ public class VentanaController {
         if (seleccionada != null) {
             Dialog<java.time.LocalDate> dialogo = new Dialog<>();
             dialogo.setTitle("Editar Fecha Límite");
-            dialogo.setHeaderText("Selecciona la nueva fecha para esta tarea:");
+            dialogo.setHeaderText("Modificar fecha para:\n" + seleccionada.getDescripcion());
 
-            DatePicker dpNuevo = new DatePicker(seleccionada.getFechaLimite());
-            dialogo.getDialogPane().setContent(dpNuevo);
-            dialogo.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+            aplicarTemaOscuro(dialogo);
+            // Solo dejamos el botón Cancelar nativo por si se arrepiente
+            dialogo.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL); 
 
-            dialogo.setResultConverter(boton -> (boton == ButtonType.OK) ? dpNuevo.getValue() : null);
+            // =======================================================
+            // CONSTRUYENDO LA INTERFAZ CUSTOM DEL DIÁLOGO
+            // =======================================================
+            javafx.scene.layout.VBox contenedor = new javafx.scene.layout.VBox(15);
+            contenedor.setAlignment(javafx.geometry.Pos.CENTER);
+            
+            // 1. El calendario clásico como protagonista
+            DatePicker dpManual = new DatePicker(seleccionada.getFechaLimite());
+            dpManual.getStyleClass().add("date-picker-filtro"); // Reciclamos tu diseño oscuro
+            dpManual.setPromptText("Seleccionar nueva fecha...");
 
+            // 2. Botón dedicado para limpiar la fecha
+            Button btnLimpiar = new Button("🗑 Eliminar Fecha");
+            btnLimpiar.setStyle("-fx-background-color: transparent; -fx-text-fill: #F44336; -fx-cursor: hand; -fx-font-weight: bold; -fx-font-size: 13px;");
+
+            // Empaquetamos todo
+            contenedor.getChildren().addAll(dpManual, btnLimpiar);
+            dialogo.getDialogPane().setContent(contenedor);
+
+            // =======================================================
+            // LÓGICA DE RESPUESTA AUTOMÁTICA
+            // =======================================================
+            
+            // Si elige manualmente en el calendario, se cierra solo y envía la fecha
+            dpManual.setOnAction(e -> {
+                if(dpManual.getValue() != null) {
+                    dialogo.setResult(dpManual.getValue());
+                    dialogo.close();
+                }
+            });
+
+            // Usamos la fecha MÍNIMA de Java como una "Bandera" secreta para borrar
+            btnLimpiar.setOnAction(e -> { 
+                dialogo.setResult(java.time.LocalDate.MIN); 
+                dialogo.close(); 
+            });
+
+            // =======================================================
+            // PROCESAMIENTO FINAL AL CERRAR LA VENTANA
+            // =======================================================
             Optional<java.time.LocalDate> resultado = dialogo.showAndWait();
             resultado.ifPresent(nuevaFecha -> {
+                
+                // Si la bandera es "MIN", significa que el usuario presionó el botón rojo
+                java.time.LocalDate fechaFinal = nuevaFecha.equals(java.time.LocalDate.MIN) ? null : nuevaFecha;
+                
                 if (seleccionada.getIdTareaPadre() != null) {
-                    seleccionada.setFechaLimite(nuevaFecha);
-                    GestorBaseDatos.actualizarTarea(seleccionada);
+                    seleccionada.setFechaLimite(fechaFinal);
+                    GestorBaseDatos.actualizarTarea(seleccionada); // Directo a SQLite
                 } else {
-                    int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(seleccionada) + 1;
-                    logica.editarFechaLimite(idReal, nuevaFecha);
+                    logica.editarFechaLimite(seleccionada, fechaFinal);
                 }
                 actualizarInterfaz();
             });
@@ -360,7 +425,7 @@ public class VentanaController {
         Tarea seleccionada = listaTareas.getSelectionModel().getSelectedItem();
         if (seleccionada != null) {
             if (seleccionada.getIdTareaPadre() != null) {
-                mostrarAlertaRapida("Acción no permitida", "Las subtareas siempre pertenecen a la misma categoría que su tarea principal. Cambia la lista de la tarea principal.");
+                mostrarAlertaRapida("Acción no permitida", "Las subtareas siempre pertenecen a la misma categoría que su tarea principal.");
                 return;
             }
 
@@ -371,11 +436,11 @@ public class VentanaController {
             dialogo.setTitle("Editar Categoría");
             dialogo.setHeaderText("Mover tarea a otra lista:");
             dialogo.setContentText("Nueva lista destino:");
+            aplicarTemaOscuro(dialogo);
 
             Optional<String> resultado = dialogo.showAndWait();
             resultado.ifPresent(nuevaCat -> {
-                int idReal = logica.obtenerTareasFiltradas(1, "Todas").indexOf(seleccionada) + 1;
-                logica.editarCategoria(idReal, nuevaCat);
+                logica.editarCategoria(seleccionada, nuevaCat); // Pasamos el objeto directo
                 actualizarInterfaz();
             });
         }
@@ -406,6 +471,9 @@ public class VentanaController {
         dialogo.setTitle("Nueva Lista");
         dialogo.setHeaderText("Tip: Presiona la tecla 'Windows + .' para elegir un emoji.");
         dialogo.setContentText("Nombre de la lista:");
+
+        aplicarTemaOscuro(dialogo);
+
         Optional<String> resultado = dialogo.showAndWait();
         resultado.ifPresent(nombre -> {
             String texto = nombre.trim();
@@ -422,6 +490,7 @@ public class VentanaController {
         dialogo.setTitle("Renombrar Lista");
         dialogo.setHeaderText("Modifica el nombre de tu lista:");
         dialogo.setContentText("Nuevo nombre:");
+        aplicarTemaOscuro(dialogo);
         Optional<String> resultado = dialogo.showAndWait();
         resultado.ifPresent(nuevoNombre -> {
             String texto = nuevoNombre.trim();
@@ -442,6 +511,7 @@ public class VentanaController {
         alerta.setHeaderText("¿Eliminar permanentemente '" + cat.getNombre() + "'?");
         alerta.setContentText("⚠ ADVERTENCIA: Si eliminas esta lista, TODAS las tareas en su interior serán destruidas.\n\n¿Deseas continuar?");
         alerta.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
+        aplicarTemaOscuro(alerta);
         Optional<ButtonType> respuesta = alerta.showAndWait();
         if (respuesta.isPresent() && respuesta.get() == ButtonType.OK) {
             GestorBaseDatos.eliminarCategoria(cat.getId());
@@ -456,5 +526,44 @@ public class VentanaController {
     public void accionCerrarSesion() {
         GestorBaseDatos.revocarRecordarSesion();
         App.cambiarEscena("VentanaLogin.fxml", "Acceso - Mi TodoList");
+    }
+
+    // --- MÉTODO AUXILIAR PARA INYECTAR CSS Y FÍSICA A LAS VENTANAS EMERGENTES ---
+    private void aplicarTemaOscuro(Dialog<?> dialogo) {
+        try {
+            // 1. ¡Destruimos la barra blanca de Windows!
+            dialogo.initStyle(javafx.stage.StageStyle.UNDECORATED);
+
+            // 2. Inyectamos nuestro archivo de estilos CSS
+            dialogo.getDialogPane().getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
+            dialogo.setGraphic(null); // Quitamos el icono azul por defecto
+            dialogo.getDialogPane().getStyleClass().add("mi-dialogo");
+
+            // 3. Motor de Física: Permitimos que la ventanita se pueda arrastrar con el mouse
+            final double[] xOffset = {0};
+            final double[] yOffset = {0};
+
+            // Cuando el usuario hace clic en cualquier parte de la alerta...
+            dialogo.getDialogPane().setOnMousePressed(event -> {
+                xOffset[0] = event.getSceneX();
+                yOffset[0] = event.getSceneY();
+            });
+
+            // Cuando el usuario arrastra el mouse...
+            dialogo.getDialogPane().setOnMouseDragged(event -> {
+                javafx.stage.Stage stage = (javafx.stage.Stage) dialogo.getDialogPane().getScene().getWindow();
+                stage.setX(event.getScreenX() - xOffset[0]);
+                stage.setY(event.getScreenY() - yOffset[0]);
+            });
+
+        } catch (Exception e) {
+            System.out.println("No se pudo cargar el CSS en el diálogo.");
+        }
+    }
+
+    @FXML
+    public void accionLimpiarFiltros() {
+        if (txtBuscador != null) txtBuscador.clear();
+        if (calendarioFiltro != null) calendarioFiltro.setValue(null);
     }
 }

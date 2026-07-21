@@ -73,6 +73,7 @@ public class GestorBaseDatos {
                 id_categoria INTEGER,
                 id_usuario INTEGER,
                 id_tarea_padre INTEGER, 
+                expandida INTEGER DEFAULT 1, -- NUEVO: Memoria de estado visual
                 FOREIGN KEY (id_categoria) REFERENCES categorias(id),
                 FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
                 FOREIGN KEY (id_tarea_padre) REFERENCES tareas(id) ON DELETE CASCADE
@@ -96,62 +97,83 @@ public class GestorBaseDatos {
     }
 
    /**
-     * MIGRACIÓN UNIVERSAL (V3.0.0e -> V4.0.0e)
-     * Inspecciona la estructura de SQLite. Si es antigua, le inyecta las columnas de privacidad y jerarquía.
+     * MOTOR DE AUTO-ACTUALIZACIÓN (VERSIÓN BLINDADA ANTI-BLOQUEOS)
      */
-    public static void migrarDatosAntiguos() {
-        try (Connection conn = conectar();
-             Statement stmt = conn.createStatement()) {
-
-            // 1. Verificamos si la tabla 'tareas' ya tiene la nueva columna 'id_usuario'
-            boolean necesitaMigracion = false;
-            try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(tareas)")) {
-                boolean tieneIdUsuario = false;
-                while (rs.next()) {
-                    // Si encuentra el nombre de la columna, la base de datos ya está en la V4
-                    if (rs.getString("name").equals("id_usuario")) {
-                        tieneIdUsuario = true;
-                        break;
-                    }
-                }
-                necesitaMigracion = !tieneIdUsuario;
-            }
-
-            // 2. Si no la tiene, es una base de datos V3. ¡Inyectamos las columnas en milisegundos!
-            if (necesitaMigracion) {
-                System.out.println("⚠️ Detectada base de datos V3. Iniciando parche de actualización a V4...");
-                
-                // Agregamos las columnas faltantes (quedarán vacías temporalmente, a la espera de un dueño)
-                stmt.execute("ALTER TABLE categorias ADD COLUMN id_usuario INTEGER");
-                stmt.execute("ALTER TABLE tareas ADD COLUMN id_usuario INTEGER");
-                stmt.execute("ALTER TABLE tareas ADD COLUMN id_tarea_padre INTEGER");
-                
-                System.out.println("✅ ¡Estructura V4 aplicada con éxito! Datos listos para ser adoptados.");
-            } else {
-                // LÓGICA DE LIMPIEZA: Si ya estamos en la V4, eliminamos el viejo tareas.json si aún existe
-                File archivoJson = new File(CARPETA_APP + File.separator + "tareas.json");
-                if (archivoJson.exists()) {
-                    archivoJson.delete(); 
-                    System.out.println("🧹 Archivo tareas.json obsoleto eliminado del sistema.");
+    private static void inyectarColumnaSiFalta(Connection conn, String tabla, String columna, String tipoSQL) {
+        boolean existe = false;
+        
+        // 1. RADAR: Leemos y cerramos el canal inmediatamente para no bloquear SQLite
+        String sqlCheck = "PRAGMA table_info(" + tabla + ")";
+        try (Statement stmtCheck = conn.createStatement();
+             ResultSet rs = stmtCheck.executeQuery(sqlCheck)) {
+            while (rs.next()) {
+                if (rs.getString("name").equals(columna)) {
+                    existe = true;
+                    break;
                 }
             }
-
         } catch (SQLException e) {
-            System.out.println("❌ Error crítico durante la migración de la BD: " + e.getMessage());
+            System.out.println("Error en el radar de columnas: " + e.getMessage());
+        }
+
+        // 2. INYECCIÓN: Si no existe, abrimos un canal nuevo y limpio para alterar la tabla
+        if (!existe) {
+            System.out.println("🔧 Auto-Updater: Inyectando '" + columna + "' en '" + tabla + "'");
+            try (Statement stmtUpdate = conn.createStatement()) {
+                stmtUpdate.execute("ALTER TABLE " + tabla + " ADD COLUMN " + columna + " " + tipoSQL);
+                
+                // Parche de seguridad extra: Evitamos que las filas viejas queden en NULL
+                if (columna.equals("expandida")) {
+                    stmtUpdate.execute("UPDATE tareas SET expandida = 1 WHERE expandida IS NULL");
+                }
+            } catch (SQLException e) {
+                System.out.println("Error al inyectar columna: " + e.getMessage());
+            }
         }
     }
 
-    /**
-     * Extrae todas las tareas de SQLite y las devuelve en una lista para la interfaz.
+   /**
+     * MIGRACIÓN UNIVERSAL Y DECLARATIVA
+     * Simplemente lista aquí las columnas que la app necesita para funcionar. 
+     * El Motor de Auto-Actualización se encargará de instalarlas en bases de datos viejas.
      */
-   // 1. CARGAR TAREAS Y SUB-TAREAS (Reconstrucción del Árbol)
+    public static void migrarDatosAntiguos() {
+        try (Connection conn = conectar()) {
+            
+            // --- LISTA DE REQUISITOS DEL SISTEMA ---
+            // Si la columna ya existe, el motor la ignora. Si falta, la inyecta al instante.
+            
+            // Requisitos de la V4 (Seguridad)
+            inyectarColumnaSiFalta(conn, "categorias", "id_usuario", "INTEGER");
+            inyectarColumnaSiFalta(conn, "tareas", "id_usuario", "INTEGER");
+            inyectarColumnaSiFalta(conn, "tareas", "id_tarea_padre", "INTEGER");
+            
+            // Requisitos de la V5 (Memoria UX)
+            inyectarColumnaSiFalta(conn, "tareas", "expandida", "INTEGER DEFAULT 1");
+            
+            // Requisitos Futuros (V6, V7... solo añade una línea aquí abajo)
+            // inyectarColumnaSiFalta(conn, "tareas", "nueva_funcion", "TEXT");
+
+            // --- LIMPIEZA DE BASURA DE LA V3 ---
+            java.io.File archivoJson = new java.io.File(CARPETA_APP + java.io.File.separator + "tareas.json");
+            if (archivoJson.exists()) {
+                archivoJson.delete();
+                System.out.println("🧹 Archivo tareas.json obsoleto eliminado.");
+            }
+
+        } catch (SQLException e) {
+            System.out.println("❌ Error crítico de conexión durante el Auto-Update: " + e.getMessage());
+        }
+    }
+
+    // 1. CARGAR TAREAS Y SUB-TAREAS (Reconstrucción del Árbol)
     public static ArrayList<Tarea> cargarTareasDesdeBD() {
         ArrayList<Tarea> listaPrincipal = new ArrayList<>();
         java.util.HashMap<Integer, Tarea> mapaTareas = new java.util.HashMap<>();
         ArrayList<Tarea> subtareasPendientes = new ArrayList<>();
 
-        // Traemos también el id_tarea_padre
-        String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, t.id_tarea_padre, c.nombre AS nombre_categoria " +
+        // CORRECCIÓN: Ahora sí pedimos t.expandida a la base de datos
+        String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, t.id_tarea_padre, t.expandida, c.nombre AS nombre_categoria " +
                      "FROM tareas t " +
                      "INNER JOIN categorias c ON t.id_categoria = c.id " +
                      "WHERE t.id_usuario = ?";
@@ -166,20 +188,19 @@ public class GestorBaseDatos {
                     Tarea t = new Tarea(rs.getString("descripcion"));
                     t.setId(rs.getInt("id"));
                     t.setCompletada(rs.getInt("completada") == 1);
+                    t.setExpandida(rs.getInt("expandida") == 1); // Ahora esto funciona sin romper el código
                     if (rs.getString("fecha_vencimiento") != null) t.setFechaLimite(java.time.LocalDate.parse(rs.getString("fecha_vencimiento")));
                     t.setCategoria(rs.getString("nombre_categoria"));
 
                     // --- LÓGICA DE JERARQUÍA ---
                     int idPadre = rs.getInt("id_tarea_padre");
                     if (rs.wasNull()) {
-                        // Es una tarea principal
                         t.setIdTareaPadre(null);
                         listaPrincipal.add(t);
-                        mapaTareas.put(t.getId(), t); // La guardamos en el mapa para encontrarla rápido
+                        mapaTareas.put(t.getId(), t); 
                     } else {
-                        // Es una subtarea
                         t.setIdTareaPadre(idPadre);
-                        subtareasPendientes.add(t); // La dejamos en espera
+                        subtareasPendientes.add(t); 
                     }
                 }
             }
@@ -196,14 +217,13 @@ public class GestorBaseDatos {
             System.out.println("Error al cargar tareas desde SQLite: " + e.getMessage());
         }
         
-        // Devolvemos solo las principales, ¡las hijas ya van empaquetadas dentro!
         return listaPrincipal; 
     }
 
     // 2. INSERTAR TAREA (Soporta Padres e Hijas)
     public static void insertarTarea(Tarea t, int idCategoria) {
         // Añadimos id_tarea_padre al final
-        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, id_categoria, id_usuario, id_tarea_padre) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, id_categoria, id_usuario, id_tarea_padre, expandida) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
@@ -219,7 +239,7 @@ public class GestorBaseDatos {
             } else {
                 pstmt.setNull(6, java.sql.Types.INTEGER);
             }
-            
+            pstmt.setInt(7, t.isExpandida() ? 1 : 0);
             pstmt.executeUpdate();
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
                 if (rs.next()) t.setId(rs.getInt(1)); 
@@ -231,7 +251,7 @@ public class GestorBaseDatos {
 
     // 3. ACTUALIZAR TAREA (Incluye reasignación de padres)
     public static void actualizarTarea(Tarea t) {
-        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, id_categoria = ?, id_tarea_padre = ? WHERE id = ?";
+        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, id_categoria = ?, id_tarea_padre = ?, expandida = ? WHERE id = ?";
         
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -241,16 +261,13 @@ public class GestorBaseDatos {
             pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
             pstmt.setInt(4, obtenerIdCategoria(t.getCategoria())); 
             
-            // --- NUEVO: ¿Tiene padre? ---
-            if (t.getIdTareaPadre() != null) {
-                pstmt.setInt(5, t.getIdTareaPadre());
-            } else {
-                pstmt.setNull(5, java.sql.Types.INTEGER);
-            }
+            if (t.getIdTareaPadre() != null) pstmt.setInt(5, t.getIdTareaPadre());
+            else pstmt.setNull(5, java.sql.Types.INTEGER);
             
-            pstmt.setInt(6, t.getId()); 
+            pstmt.setInt(6, t.isExpandida() ? 1 : 0); 
+            pstmt.setInt(7, t.getId()); 
             
-            pstmt.executeUpdate();
+            pstmt.executeUpdate(); // Ejecutamos una sola vez, de forma limpia
             
         } catch (SQLException e) {
             System.out.println("Error al actualizar tarea: " + e.getMessage());
