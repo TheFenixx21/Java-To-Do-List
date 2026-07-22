@@ -13,107 +13,67 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="800.0" prefWidth="1520.0" style="-fx-background-color: #0F0F0F;" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mitodolist.VentanaController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="800.0" prefWidth="1520.0" styleClass="fondo-principal" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mitodolist.VentanaController">
    <left>
-      <VBox prefHeight="680.0" prefWidth="180.0" style="-fx-background-color: #1A1A1A;" BorderPane.alignment="CENTER">
-         <BorderPane.margin>
-            <Insets bottom="20.0" left="20.0" right="20.0" top="15.0" />
-         </BorderPane.margin>
+      <VBox prefHeight="680.0" prefWidth="180.0" styleClass="fondo-panel" BorderPane.alignment="CENTER">
+         <BorderPane.margin><Insets bottom="20.0" left="20.0" right="20.0" top="15.0" /></BorderPane.margin>
          <children>
             <ComboBox fx:id="comboFiltros" promptText="Filtro de Tareas" styleClass="combo-capsula">
-               <VBox.margin>
-                  <Insets left="10.0" right="10.0" top="10.0" />
-               </VBox.margin></ComboBox>
-            <Label style="-fx-text-fill: #888888; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 20 0 5 0;" text="Mis listas" textFill="WHITE">
-               <VBox.margin>
-                  <Insets left="10.0" top="10.0" />
-               </VBox.margin></Label>
+               <VBox.margin><Insets left="10.0" right="10.0" top="10.0" /></VBox.margin>
+            </ComboBox>
+            <Label style="-fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 20 0 5 0;" styleClass="texto-secundario" text="Mis listas">
+               <VBox.margin><Insets left="10.0" top="10.0" /></VBox.margin>
+            </Label>
             <VBox fx:id="contenedorCategorias" prefHeight="200.0" prefWidth="100.0" />
             <Region prefHeight="329.0" prefWidth="180.0" VBox.vgrow="ALWAYS" />
             <HBox alignment="CENTER" prefHeight="43.0" prefWidth="180.0">
                <children>
-                  <Button mnemonicParsing="false" onAction="#accionCrearNuevaCategoria" prefHeight="38.0" prefWidth="103.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 14px;" text="+Nueva lista" textFill="WHITE">
-                     <cursor>
-                        <Cursor fx:constant="HAND" />
-                     </cursor></Button>
+                  <Button mnemonicParsing="false" onAction="#accionCrearNuevaCategoria" prefHeight="38.0" prefWidth="110.0" style="-fx-font-size: 14px;" styleClass="boton-acento" text="+Nueva lista" />
                </children>
-               <VBox.margin>
-                  <Insets bottom="30.0" />
-               </VBox.margin>
+               <VBox.margin><Insets bottom="30.0" /></VBox.margin>
             </HBox>
          </children>
       </VBox>
    </left>
    <right>
-      <VBox prefHeight="680.0" prefWidth="180.0" spacing="15.0" style="-fx-background-color: #1A1A1A;" BorderPane.alignment="CENTER">
-         <BorderPane.margin>
-            <Insets bottom="20.0" left="20.0" right="20.0" top="15.0" />
-         </BorderPane.margin>
+      <VBox prefHeight="680.0" prefWidth="180.0" spacing="15.0" styleClass="fondo-panel" BorderPane.alignment="CENTER">
+         <BorderPane.margin><Insets bottom="20.0" left="20.0" right="20.0" top="15.0" /></BorderPane.margin>
          <children>
-            <HBox alignment="CENTER">
-               <VBox.margin>
-                  <Insets top="10.0" />
-               </VBox.margin>
+            <HBox alignment="CENTER" spacing="10.0">
+               <VBox.margin><Insets top="10.0" /></VBox.margin>
                <children>
-                  <Button mnemonicParsing="false" onAction="#accionCerrarSesion" prefHeight="38.0" prefWidth="103.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 12px;" text="Cerrar sesión" textFill="WHITE">
-                     <cursor>
-                        <Cursor fx:constant="HAND" />
-                     </cursor>
-                  </Button>
+                  <Button mnemonicParsing="false" onAction="#abrirConfiguracion" prefHeight="38.0" prefWidth="45.0" style="-fx-font-size: 18px;" styleClass="boton-secundario" text="⚙" />
+                  <Button mnemonicParsing="false" onAction="#accionCerrarSesion" prefHeight="38.0" prefWidth="103.0" style="-fx-font-size: 12px;" styleClass="boton-acento" text="Cerrar sesión" />
                </children>
             </HBox>
-            <Label style="-fx-text-fill: #888888; -fx-font-weight: bold; -fx-font-size: 13px;" text="📊 RESUMEN">
-               <VBox.margin>
-                  <Insets left="10.0" top="10.0" />
-               </VBox.margin></Label>
-            <Label fx:id="lblPendientes" style="-fx-text-fill: white; -fx-font-size: 15px;" text="Pendientes: 0">
-               <VBox.margin>
-                  <Insets left="10.0" />
-               </VBox.margin></Label>
-            <Label fx:id="lblCompletadas" layoutX="10.0" layoutY="82.0" style="-fx-text-fill: white; -fx-font-size: 15px;" text="Completadas: 0">
-               <VBox.margin>
-                  <Insets left="10.0" />
-               </VBox.margin></Label>
-            <Label fx:id="lblAtrasadas" layoutX="10.0" layoutY="114.0" style="-fx-text-fill: white; -fx-font-size: 15px;" text="Atrasadas: 0">
-               <VBox.margin>
-                  <Insets left="10.0" />
-               </VBox.margin></Label>
-            <HBox alignment="CENTER" prefHeight="43.0" prefWidth="180.0">
-               <padding>
-                  <Insets bottom="35.0" />
-               </padding>
-            </HBox>
+            <Label style="-fx-font-weight: bold; -fx-font-size: 13px;" styleClass="texto-secundario" text="📊 RESUMEN">
+               <VBox.margin><Insets left="10.0" top="10.0" /></VBox.margin>
+            </Label>
+            <Label fx:id="lblPendientes" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Pendientes: 0"><VBox.margin><Insets left="10.0" /></VBox.margin></Label>
+            <Label fx:id="lblCompletadas" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Completadas: 0"><VBox.margin><Insets left="10.0" /></VBox.margin></Label>
+            <Label fx:id="lblAtrasadas" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Atrasadas: 0"><VBox.margin><Insets left="10.0" /></VBox.margin></Label>
          </children>
       </VBox>
    </right>
    <center>
       <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
-         <BorderPane.margin>
-            <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
-         </BorderPane.margin>
+         <BorderPane.margin><Insets bottom="20.0" left="20.0" right="20.0" top="20.0" /></BorderPane.margin>
          <children>
             <HBox alignment="CENTER_LEFT" prefHeight="40.0" prefWidth="770.0" spacing="10.0">
                <children>
                   <TextField fx:id="txtBuscador" prefHeight="35.0" promptText="🔍 Buscar tarea..." styleClass="caja-busqueda" HBox.hgrow="ALWAYS" />
-                  <DatePicker fx:id="calendarioFiltro" prefHeight="35.0" prefWidth="124.0" promptText="📅 Filtrar fecha..." styleClass="date-picker-filtro" />
-                  <Button fx:id="btnLimpiarFiltros" mnemonicParsing="false" onAction="#accionLimpiarFiltros" prefHeight="35.0" styleClass="boton-limpiar" text="✖" />
+                  <DatePicker fx:id="calendarioFiltro" prefHeight="35.0" prefWidth="170.0" promptText="📅 Filtrar fecha..." />
+                  <Button fx:id="btnLimpiarFiltros" mnemonicParsing="false" onAction="#accionLimpiarFiltros" prefHeight="35.0" styleClass="boton-transparente" text="✖" />
                </children>
-               <VBox.margin>
-                  <Insets bottom="15.0" left="15.0" right="15.0" />
-               </VBox.margin>
-               <padding>
-                  <Insets top="5.0" />
-               </padding>
+               <VBox.margin><Insets bottom="15.0" left="15.0" right="15.0" /></VBox.margin>
+               <padding><Insets top="5.0" /></padding>
             </HBox>
-            <ListView fx:id="listaTareas" prefHeight="200.0" prefWidth="200.0" style="-fx-control-inner-background: #0F0F0F; -fx-background-color: transparent; -fx-font-size: 18px;" VBox.vgrow="ALWAYS" />
+            <ListView fx:id="listaTareas" prefHeight="200.0" prefWidth="200.0" style="-fx-font-size: 18px;" styleClass="fondo-principal" VBox.vgrow="ALWAYS" />
             <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
                <children>
-                  <TextField fx:id="txtNuevaTarea" promptText="¡Hola!¿Qué tarea tenemos hoy?" style="-fx-background-color: #1A1A1A; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 15; -fx-font-size: 15px;" HBox.hgrow="ALWAYS" />
-                  <DatePicker fx:id="calendarioPrincipal" promptText="📅 Fecha" styleClass="date-picker-creacion" />
-                  <Button fx:id="btnAgregar1" layoutX="775.0" layoutY="41.0" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: #C2185B; -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-font-size: 17px;" text="+" textFill="WHITE">
-                     <cursor>
-                        <Cursor fx:constant="HAND" />
-                     </cursor></Button>
+                  <TextField fx:id="txtNuevaTarea" prefHeight="45.0" promptText="¡Hola! ¿Qué tarea tenemos hoy?" style="-fx-font-size: 15px;" styleClass="caja-texto" HBox.hgrow="ALWAYS" />
+                  <DatePicker fx:id="calendarioPrincipal" promptText="📅 Fecha" />
+                  <Button fx:id="btnAgregar1" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="40.0" prefWidth="40.0" style="-fx-font-size: 18px;" styleClass="boton-acento" text="+" />
                </children>
             </HBox>
          </children>

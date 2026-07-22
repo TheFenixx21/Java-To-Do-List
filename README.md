@@ -2,33 +2,33 @@
 
 Una aplicación de escritorio moderna y eficiente construida con **Java y JavaFX**, diseñada para la gestión de tareas personales.
 
-Con la llegada de la versión **V5.0.0e**, la aplicación alcanza su máxima madurez visual y estructural, integrando una interfaz completamente customizada, motores de ordenamiento inteligente y un backend refactorizado, construyendo sobre la robusta arquitectura multi-usuario de versiones anteriores.
+Con la llegada de la versión **V6.0.0e**, la aplicación da un salto monumental hacia la seguridad y la personalización estructural. Integrando criptografía avanzada, un motor dinámico de renderizado visual y una arquitectura purificada, la aplicación se consolida como una herramienta robusta y de alto nivel.
 
 ---
 
-## 🚀 Novedades en la Versión 5.0.0e (Revolución Visual y Lógica Inteligente)
+## 🚀 Novedades en la Versión 6.0.0e (Seguridad Criptográfica y Personalización Visual)
 
-Esta actualización se centra en la ergonomía de la interfaz, el diseño (UI/UX) de alto nivel y la optimización extrema del motor de procesamiento de datos:
+Esta actualización se centra en blindar la información del usuario, ofrecer una experiencia visual altamente adaptable y purificar la estructura del código siguiendo el estándar MVC:
 
-* **Custom Window y UI Premium:**
-  * El marco nativo del sistema operativo ha sido reemplazado por una barra de título personalizada con controles propios y física de arrastre (Drag & Drop) y redimensión adaptativa.
-  * Nueva resolución de entorno de trabajo expandida (1520x800) para un lienzo más limpio y espacioso.
-  * Tema oscuro perfeccionado con controles dinámicos en estilo "cápsula" y una barra inferior de creación de tareas unificada y ergonómica.
-* **Motor de Ordenamiento y Búsqueda en Tiempo Real:**
-  * **Auto-ordenamiento:** Las tareas ahora evalúan su estado de forma autónoma. Las tareas completadas y sin fecha son enviadas al fondo, mientras que las pendientes se ordenan cronológicamente según su urgencia.
-  * Barra central de filtros dinámicos que permite buscar tareas por texto o fecha de manera instantánea.
-  * Sistema de enumeración visual dinámica (1, 2, 3...) que se adapta en milisegundos a los filtros activos en pantalla.
-* **Selector de Fechas Minimalista:**
-  * Nuevo diálogo de edición diseñado para ser "Cero Clics Extra", incluyendo un botón táctico dedicado para eliminar la fecha límite de una tarea (modo infinito) interactuando directamente con la base de datos.
-* **Refactorización Orientada a Objetos (Estabilidad Extrema):**
-  * El motor CRUD fue reescrito desde sus cimientos. La aplicación abandonó el uso de índices visuales para adoptar un sistema de referencias de memoria (OOP) y placas únicas de SQLite.
-  * Erradicación absoluta del "Efecto de Desincronización": editar, completar o eliminar tareas jerárquicas es ahora 100% preciso, sin importar cuántos filtros o búsquedas se estén aplicando a la vista.
-* **Memoria de Estado Visual (UX):**
-  * El esquema de la base de datos ha sido actualizado para recordar el estado de expansión de los árboles de tareas (plegado `[+]` o desplegado `[-]`), recuperando el entorno de trabajo exacto al iniciar sesión.
+* **Criptografía y Seguridad de Datos:**
+  * **AES-128 para Tareas:** Implementación de encriptación simétrica bidireccional para todas las descripciones en la base de datos SQLite, protegiendo la información local.
+  * **Hashing SHA-256:** Los PINs de acceso ahora son procesados mediante algoritmos irreversibles, garantizando que las credenciales jamás se expongan en texto plano.
+  * **Protocolo de Destrucción:** Nuevo sistema de eliminación de cuenta con doble barrera de autenticación que realiza un borrado en cascada (tareas, listas y usuario) sin dejar rastros de datos.
+* **Privacidad Visual y Auto-Protección (UX):**
+  * **Arranque Automático:** Opción integrada para iniciar la aplicación silenciosamente junto con Windows, asegurando que tus tareas estén siempre disponibles al encender el equipo.
+  * **Modo Enmascarado:** Función de privacidad que oculta el contenido de las tareas en pantalla mediante asteriscos, revelando la información únicamente al interactuar con el cursor.
+  * **Auto-Bloqueo Inteligente:** Escáner asíncrono que detecta la inactividad del usuario (ratón/teclado) y bloquea automáticamente la sesión tras un tiempo configurable.
+* **Motor de Temas Dinámico (UI Premium):**
+  * Inyección de variables CSS en tiempo real que permite alternar entre el clásico Tema Oscuro y un nuevo **Tema Claro** (con paletas de grises suaves para descanso visual) de forma instantánea y sin reiniciar la aplicación.
+  * Personalización total del "Color de Acento" de la interfaz, permitiendo al usuario elegir el alma visual de su entorno (Magenta, Azul, Verde Esmeralda, Naranja).
+* **Arquitectura Purificada y Backups:**
+  * **Refactorización MVC:** Separación estricta de responsabilidades (FXML para estructura visual, CSS global para diseño y Java exclusivo para lógica).
+  * **Migraciones Silenciosas:** Scripts de actualización en segundo plano que detectan bases de datos de versiones anteriores y encriptan su contenido automáticamente sin fricción para el usuario.
+  * **Sistema de Respaldos:** Creación de backups diarios automatizados con política de retención de espacio y auto-restauración en caso de corrupción.
 
 ## 📥 Instalación (Para Usuarios)
 
-¡Probar la aplicación es muy fácil![cite: 19]
+¡Probar la aplicación es muy fácil!
 1. Ve a la sección de [Releases](../../releases) de este repositorio.
 2. Descarga el archivo instalador más reciente.
 3. Haz doble clic, sigue los pasos del asistente de instalación de Windows, ¡y listo!
@@ -41,6 +41,7 @@ Si deseas clonar el código fuente y compilar el proyecto tú mismo, el reposito
 * JDK 25 (o superior).
 * Maven configurado en tu variable PATH.
 * WiX Toolset v3 (requerido por jpackage en Windows).
+
 **Pasos:**
 1. Clona el repositorio: `git clone https://github.com/TheFenixx21/Java-To-Do-List.git`
 2. Ve a la carpeta raíz del proyecto.

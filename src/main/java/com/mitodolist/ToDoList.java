@@ -5,26 +5,46 @@ public class ToDoList {
     
     private ArrayList<Tarea> tareas;
 
-    // --- V5.0.0e: MOTOR DE ORDENAMIENTO INTELIGENTE ---
+    // --- V5.0.0e: MOTOR DE ORDENAMIENTO INTELIGENTE (ACTUALIZADO) ---
     public static final java.util.Comparator<Tarea> ORDENADOR_TAREAS = (t1, t2) -> {
-        // Regla 1: Las completadas SIEMPRE van al fondo de la lista
+        // Regla 1: Las completadas SIEMPRE van al fondo de la lista general
         if (t1.isCompletada() != t2.isCompletada()) {
             return t1.isCompletada() ? 1 : -1; // Si t1 está completada, la empuja hacia abajo (+1)
         }
 
-        // Regla 2: Si ambas están pendientes (o ambas completadas), comparamos sus fechas
+        // Si llegamos aquí, ambas tienen el mismo estado (ambas pendientes o ambas completadas)
         java.time.LocalDate fecha1 = t1.getFechaLimite();
         java.time.LocalDate fecha2 = t2.getFechaLimite();
 
-        // Si ninguna tiene fecha, se quedan donde están
-        if (fecha1 == null && fecha2 == null) return 0;
+        // Si ambas son tareas sin fecha
+        if (fecha1 == null && fecha2 == null) {
+            // Si están completadas, ordenamos por ID de mayor a menor (las creadas más recientemente van arriba)
+            if (t1.isCompletada()) {
+                return Integer.compare(t2.getId(), t1.getId());
+            }
+            return 0; // Si están pendientes, conservan su orden de creación por defecto
+        }
         
-        // Las tareas SIN fecha se van al fondo (justo por encima de las completadas)
+        // Las tareas SIN fecha se van al fondo de su respectivo grupo
         if (fecha1 == null) return 1; 
         if (fecha2 == null) return -1;
 
-        // Orden Cronológico: Las fechas más antiguas/urgentes van arriba, las futuras hacia abajo.
-        return fecha1.compareTo(fecha2);
+        // Regla 2: Comparamos las fechas dependiendo de su estado
+        int comparacionFechas;
+        if (t1.isCompletada()) {
+            // Si están COMPLETADAS: Orden Inverso (Fechas más recientes arriba)
+            comparacionFechas = fecha2.compareTo(fecha1); 
+        } else {
+            // Si están PENDIENTES: Orden Cronológico (Fechas más urgentes/antiguas arriba)
+            comparacionFechas = fecha1.compareTo(fecha2);
+        }
+
+        // Regla 3: Si tienen la misma fecha y están completadas, desempatamos por el ID más reciente
+        if (comparacionFechas == 0 && t1.isCompletada()) {
+            return Integer.compare(t2.getId(), t1.getId());
+        }
+
+        return comparacionFechas;
     };
 
     public ToDoList() {
@@ -205,72 +225,83 @@ public class ToDoList {
     public ArrayList<Tarea> obtenerTareasFiltradas(int filtro, String categoriaDeseada) {
         ArrayList<Tarea> resultado = new ArrayList<>();
         java.time.LocalDate hoy = java.time.LocalDate.now();
+        
+        // 🚨 NUEVO: Leemos las configuraciones del usuario en tiempo real
+        Configuracion config = GestorConfiguracion.cargarConfiguracion();
 
         for (Tarea tareaActual : tareas) {
-            // 1. ¿Cumple con el estado (Pendiente/Completada)?
             boolean incluirPorFiltro = false;
             switch (filtro) {
-                case 1: incluirPorFiltro = true; break;
+                case 1: 
+                    // Si eligió "Ocultar completadas", las sacamos de la vista principal "Todas"
+                    if (config.isOcultarCompletadasAuto() && tareaActual.isCompletada()) {
+                        incluirPorFiltro = false;
+                    } else {
+                        incluirPorFiltro = true; 
+                    }
+                    break;
                 case 2: incluirPorFiltro = !tareaActual.isCompletada(); break;
                 case 3: incluirPorFiltro = tareaActual.isCompletada(); break;
                 case 4: incluirPorFiltro = !tareaActual.isCompletada() && tareaActual.getFechaLimite() != null && tareaActual.getFechaLimite().isBefore(hoy); break;
                 default: incluirPorFiltro = true;
             }
 
-            // 2. ¿Cumple con la categoría elegida en el menú lateral?
             boolean incluirPorCategoria = categoriaDeseada.equals("Todas") || tareaActual.getCategoria().equals(categoriaDeseada);
 
-            // Si pasa ambas pruebas, se guarda en el resultado
             if (incluirPorFiltro && incluirPorCategoria) {
                 resultado.add(tareaActual);
             }
         }
         
-        // --- APLICAMOS EL ORDENAMIENTO ANTES DE ENVIARLAS A LA PANTALLA ---
         resultado.sort(ORDENADOR_TAREAS);
-        
         return resultado;
     }
     
-  // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (VIGILANTE RECURRENTE) ---
+  // --- V2.0.0e: TRABAJADOR EN SEGUNDO PLANO (MODIFICADO PARA V6) ---
     private void iniciarVigilanteNotificaciones() {
         Thread vigilante = new Thread(() -> {
-            
             int minutosTranscurridos = 0; 
 
             while (true) { 
                 try {
                     java.time.LocalDate hoy = java.time.LocalDate.now();
+                    
+                    Configuracion config = GestorConfiguracion.cargarConfiguracion();
+                    int intervalo = config.getIntervaloNotificaciones();
 
-                    // 1. Reseteo de 15 minutos (Escaneamos Madres e Hijas)
-                    if (minutosTranscurridos >= 15) {
+                    // 🚨 NUEVO: Solo trabaja si el usuario NO ha desactivado la función (0)
+                    if (intervalo > 0) {
+                        
+                        // 1. Reseteo dinámico
+                        if (minutosTranscurridos >= intervalo) {
+                            for (Tarea principal : tareas) {
+                                resetearNotificacionSiEsHoy(principal, hoy);
+                                if (principal.getSubTareas() != null) {
+                                    for (Tarea hija : principal.getSubTareas()) {
+                                        resetearNotificacionSiEsHoy(hija, hoy);
+                                    }
+                                }
+                            }
+                            minutosTranscurridos = 0; 
+                        }
+
+                        // 2. Evaluación de Notificaciones
                         for (Tarea principal : tareas) {
-                            resetearNotificacionSiEsHoy(principal, hoy);
-                            
+                            evaluarYLanzarNotificacion(principal, null, hoy);
                             if (principal.getSubTareas() != null) {
                                 for (Tarea hija : principal.getSubTareas()) {
-                                    resetearNotificacionSiEsHoy(hija, hoy);
+                                    evaluarYLanzarNotificacion(hija, principal, hoy);
                                 }
                             }
                         }
-                        minutosTranscurridos = 0; 
                     }
 
-                    // 2. Revisión de Notificaciones (Escaneamos Madres e Hijas)
-                    for (Tarea principal : tareas) {
-                        // A la madre no le pasamos ningún padre (null)
-                        evaluarYLanzarNotificacion(principal, null, hoy);
-                        
-                        if (principal.getSubTareas() != null) {
-                            for (Tarea hija : principal.getSubTareas()) {
-                                // A la hija sí le pasamos su madre para el contexto
-                                evaluarYLanzarNotificacion(hija, principal, hoy);
-                            }
-                        }
+                    Thread.sleep(60000); // Pausa de 1 minuto real
+                    
+                    // Solo sumamos tiempo si el vigilante está activo
+                    if (intervalo > 0) {
+                        minutosTranscurridos++; 
                     }
-
-                    Thread.sleep(60000); 
-                    minutosTranscurridos++; 
 
                 } catch (InterruptedException e) {
                     break; 
@@ -315,24 +346,22 @@ public class ToDoList {
 
     // --- V2.0.0e: MOTOR DE NOTIFICACIONES NATIVAS ---
     public void enviarNotificacionWindows(String titulo, String mensaje) {
-        // 1. Verificamos si el sistema operativo soporta notificaciones de bandeja
         if (java.awt.SystemTray.isSupported()) {
             try {
-                // 2. Obtenemos acceso a la bandeja del sistema (System Tray)
+                // 🚨 NUEVO: Verificamos si el usuario quiere ruido o silencio
+                Configuracion config = GestorConfiguracion.cargarConfiguracion();
+                java.awt.TrayIcon.MessageType tipoMensaje = config.isSonidoNotificaciones() 
+                        ? java.awt.TrayIcon.MessageType.INFO 
+                        : java.awt.TrayIcon.MessageType.NONE; // NONE desactiva el "Ding" de Windows
+
                 java.awt.SystemTray bandeja = java.awt.SystemTray.getSystemTray();
-                
-                // 3. Creamos una imagen invisible de 1x1 pixel para que no de error de icono
                 java.awt.Image imagenInvisible = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-                
-                // 4. Preparamos el icono de la notificación
                 java.awt.TrayIcon iconoNotificacion = new java.awt.TrayIcon(imagenInvisible, "Mi ToDo List");
                 iconoNotificacion.setImageAutoSize(true);
                 
-                // 5. Agregamos el icono a Windows y disparamos el mensaje
                 bandeja.add(iconoNotificacion);
-                iconoNotificacion.displayMessage(titulo, mensaje, java.awt.TrayIcon.MessageType.INFO);
-                
-                // 6. Retiramos el icono inmediatamente para no dejar basura en la barra de tareas
+                // Usamos el tipo de mensaje dinámico
+                iconoNotificacion.displayMessage(titulo, mensaje, tipoMensaje); 
                 bandeja.remove(iconoNotificacion);
                 
             } catch (Exception e) {

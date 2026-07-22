@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="550.0" prefWidth="800.0" styleClass="fondo-principal, borde-estandar" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mitodolist.ConfiguracionController">
+   <top>
+      <HBox fx:id="barraSuperiorConfig" alignment="CENTER_LEFT" prefHeight="50.0" spacing="15.0" styleClass="fondo-barra" BorderPane.alignment="CENTER">
+         <children>
+            <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" styleClass="texto-principal" text="⚙ Configuración" />
+            <HBox alignment="CENTER_RIGHT" HBox.hgrow="ALWAYS">
+               <children>
+                  <Button mnemonicParsing="false" onAction="#cerrarVentana" style="-fx-font-size: 16px; -fx-font-weight: bold;" styleClass="boton-transparente" text="✖" />
+               </children>
+            </HBox>
+         </children>
+         <padding><Insets bottom="10.0" left="20.0" right="20.0" top="10.0" /></padding>
+      </HBox>
+   </top>
+   <center>
+      <StackPane BorderPane.alignment="CENTER">
+         <BorderPane.margin><Insets bottom="30.0" left="50.0" right="50.0" top="30.0" /></BorderPane.margin>
+         <children>
+            <!-- VISTA 1: DASHBOARD -->
+            <VBox fx:id="vistaDashboard" alignment="TOP_CENTER" spacing="40.0">
+               <children>
+                  <HBox alignment="CENTER_LEFT" spacing="20.0">
+                     <children>
+                        <VBox alignment="CENTER" prefHeight="80.0" prefWidth="80.0" style="-fx-background-radius: 40;" styleClass="fondo-caja">
+                           <children><Label style="-fx-font-size: 35px;" styleClass="texto-principal" text="👤" /></children>
+                        </VBox>
+                        <VBox alignment="CENTER_LEFT" spacing="5.0">
+                           <children>
+                              <Label fx:id="lblNombreUsuario" style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Usuario" />
+                              <Label style="-fx-font-size: 14px;" styleClass="texto-secundario" text="Cuenta Local - Mi ToDo List" />
+                           </children>
+                        </VBox>
+                     </children>
+                     <VBox.margin><Insets bottom="20.0" /></VBox.margin>
+                  </HBox>
+                  <GridPane alignment="CENTER" hgap="40.0" vgap="40.0">
+                    <columnConstraints>
+                      <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="300.0" />
+                      <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="300.0" />
+                    </columnConstraints>
+                    <rowConstraints>
+                      <RowConstraints minHeight="10.0" prefHeight="100.0" vgrow="SOMETIMES" />
+                      <RowConstraints minHeight="10.0" prefHeight="100.0" vgrow="SOMETIMES" />
+                    </rowConstraints>
+                     <children>
+                        <!-- Tarjeta 1 -->
+                        <Button mnemonicParsing="false" onAction="#abrirSeccionSistema" prefHeight="100.0" prefWidth="320.0" styleClass="tarjeta-configuracion" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                           <graphic>
+                              <HBox alignment="CENTER_LEFT" spacing="15.0">
+                                 <children>
+                                    <Label style="-fx-font-size: 35px;" styleClass="texto-acento" text="💻" />
+                                    <VBox alignment="CENTER_LEFT" spacing="3.0">
+                                       <children>
+                                          <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" styleClass="texto-principal" text="Sistema" />
+                                          <Label style="-fx-font-size: 12px;" styleClass="texto-secundario" text="Arranque, Notificaciones, Tareas" />
+                                       </children>
+                                    </VBox>
+                                 </children>
+                              </HBox>
+                           </graphic>
+                        </Button>
+                        <!-- Tarjeta 2 -->
+                        <Button mnemonicParsing="false" onAction="#abrirSeccionPrivacidad" prefHeight="100.0" prefWidth="320.0" styleClass="tarjeta-configuracion" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                           <graphic>
+                              <HBox alignment="CENTER_LEFT" spacing="15.0">
+                                 <children>
+                                    <Label style="-fx-font-size: 35px;" styleClass="texto-acento" text="🛡️" />
+                                    <VBox alignment="CENTER_LEFT" spacing="3.0">
+                                       <children>
+                                          <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" styleClass="texto-principal" text="Privacidad y Seguridad" />
+                                          <Label style="-fx-font-size: 12px;" styleClass="texto-secundario" text="Auto-bloqueo, Enmascarado" />
+                                       </children>
+                                    </VBox>
+                                 </children>
+                              </HBox>
+                           </graphic>
+                        </Button>
+                        <!-- Tarjeta 3 -->
+                        <Button mnemonicParsing="false" onAction="#abrirSeccionApariencia" prefHeight="100.0" prefWidth="320.0" styleClass="tarjeta-configuracion" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                           <graphic>
+                              <HBox alignment="CENTER_LEFT" spacing="15.0">
+                                 <children>
+                                    <Label style="-fx-font-size: 35px;" styleClass="texto-acento" text="🎨" />
+                                    <VBox alignment="CENTER_LEFT" spacing="3.0">
+                                       <children>
+                                          <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" styleClass="texto-principal" text="Apariencia" />
+                                          <Label style="-fx-font-size: 12px;" styleClass="texto-secundario" text="Tema oscuro, Colores, Fecha" />
+                                       </children>
+                                    </VBox>
+                                 </children>
+                              </HBox>
+                           </graphic>
+                        </Button>
+                        <!-- Tarjeta 4 -->
+                        <Button mnemonicParsing="false" onAction="#abrirSeccionCuenta" prefHeight="100.0" prefWidth="320.0" styleClass="tarjeta-configuracion" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                           <graphic>
+                              <HBox alignment="CENTER_LEFT" spacing="15.0">
+                                 <children>
+                                    <Label style="-fx-font-size: 35px;" styleClass="texto-acento" text="👤" />
+                                    <VBox alignment="CENTER_LEFT" spacing="3.0">
+                                       <children>
+                                          <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" styleClass="texto-principal" text="Cuenta" />
+                                          <Label style="-fx-font-size: 12px;" styleClass="texto-secundario" text="Cambiar PIN, Eliminar datos" />
+                                       </children>
+                                    </VBox>
+                                 </children>
+                              </HBox>
+                           </graphic>
+                        </Button>
+                     </children>
+                  </GridPane>
+               </children>
+            </VBox>
+
+            <!-- VISTA 2: SISTEMA -->
+            <VBox fx:id="vistaSistema" visible="false" alignment="TOP_LEFT" spacing="25.0">
+               <children>
+                  <HBox alignment="CENTER_LEFT" spacing="15.0">
+                     <children>
+                        <Button mnemonicParsing="false" onAction="#mostrarDashboard" style="-fx-font-size: 20px;" styleClass="boton-transparente" text="⬅" />
+                        <Label style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Sistema" />
+                     </children>
+                  </HBox>
+                  <VBox spacing="20.0" style="-fx-padding: 25; -fx-background-radius: 10;" styleClass="fondo-panel">
+                     <children>
+                        <CheckBox fx:id="chkArranque" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Arranque automático con Windows" />
+                        <HBox alignment="CENTER_LEFT" spacing="15.0">
+                           <children>
+                              <Label style="-fx-font-size: 15px;" styleClass="texto-principal" text="Vigilante (Minutos):" />
+                              <ComboBox fx:id="comboIntervalo" prefWidth="130.0" styleClass="combo-capsula" />
+                           </children>
+                        </HBox>
+                        <CheckBox fx:id="chkSonido" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Activar sonido en notificaciones" />
+                        <CheckBox fx:id="chkOcultar" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Ocultar completadas automáticamente" />
+                     </children>
+                  </VBox>
+                  <HBox alignment="CENTER_RIGHT"><Button onAction="#guardarConfiguracionSistema" prefHeight="35.0" prefWidth="120.0" styleClass="boton-acento" text="Guardar" /></HBox>
+               </children>
+            </VBox>
+
+            <!-- VISTA 3: PRIVACIDAD -->
+            <VBox fx:id="vistaPrivacidad" visible="false" alignment="TOP_LEFT" spacing="25.0">
+               <children>
+                  <HBox alignment="CENTER_LEFT" spacing="15.0">
+                     <children>
+                        <Button mnemonicParsing="false" onAction="#mostrarDashboard" style="-fx-font-size: 20px;" styleClass="boton-transparente" text="⬅" />
+                        <Label style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Privacidad" />
+                     </children>
+                  </HBox>
+                  <VBox spacing="20.0" style="-fx-padding: 25; -fx-background-radius: 10;" styleClass="fondo-panel">
+                     <children>
+                        <HBox alignment="CENTER_LEFT" spacing="15.0">
+                           <children>
+                              <Label style="-fx-font-size: 15px;" styleClass="texto-principal" text="Auto-bloqueo:" />
+                              <ComboBox fx:id="comboBloqueo" prefWidth="130.0" styleClass="combo-capsula" />
+                           </children>
+                        </HBox>
+                        <CheckBox fx:id="chkPrivacidad" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Modo Enmascarado (Ocultar texto con asteriscos)" />
+                     </children>
+                  </VBox>
+                  <HBox alignment="CENTER_RIGHT"><Button onAction="#guardarConfiguracionPrivacidad" prefHeight="35.0" prefWidth="120.0" styleClass="boton-acento" text="Guardar" /></HBox>
+               </children>
+            </VBox>
+
+            <!-- VISTA 4: APARIENCIA -->
+            <VBox fx:id="vistaApariencia" visible="false" alignment="TOP_LEFT" spacing="25.0">
+               <children>
+                  <HBox alignment="CENTER_LEFT" spacing="15.0">
+                     <children>
+                        <Button mnemonicParsing="false" onAction="#mostrarDashboard" style="-fx-font-size: 20px;" styleClass="boton-transparente" text="⬅" />
+                        <Label style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Apariencia" />
+                     </children>
+                  </HBox>
+                  <VBox spacing="20.0" style="-fx-padding: 25; -fx-background-radius: 10;" styleClass="fondo-panel">
+                     <children>
+                        <HBox alignment="CENTER_LEFT" spacing="15.0">
+                           <children>
+                              <Label prefWidth="130.0" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Tema Visual:" />
+                              <ComboBox fx:id="comboTema" prefWidth="250.0" styleClass="combo-capsula" />
+                           </children>
+                        </HBox>
+                        <HBox alignment="CENTER_LEFT" spacing="15.0">
+                           <children>
+                              <Label prefWidth="130.0" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Color de Acento:" />
+                              <ComboBox fx:id="comboColor" prefWidth="250.0" styleClass="combo-capsula" />
+                           </children>
+                        </HBox>
+                        <HBox alignment="CENTER_LEFT" spacing="15.0">
+                           <children>
+                              <Label prefWidth="130.0" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Formato Fecha:" />
+                              <ComboBox fx:id="comboFecha" prefWidth="250.0" styleClass="combo-capsula" />
+                           </children>
+                        </HBox>
+                     </children>
+                  </VBox>
+                  <HBox alignment="CENTER_RIGHT"><Button onAction="#guardarConfiguracionApariencia" prefHeight="35.0" prefWidth="120.0" styleClass="boton-acento" text="Guardar" /></HBox>
+               </children>
+            </VBox>
+
+            <!-- VISTA 5: CUENTA -->
+            <VBox fx:id="vistaCuenta" visible="false" alignment="TOP_LEFT" spacing="25.0">
+               <children>
+                  <HBox alignment="CENTER_LEFT" spacing="15.0">
+                     <children>
+                        <Button mnemonicParsing="false" onAction="#mostrarDashboard" style="-fx-font-size: 20px;" styleClass="boton-transparente" text="⬅" />
+                        <Label style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Mi Cuenta" />
+                     </children>
+                  </HBox>
+                  <VBox spacing="20.0" style="-fx-padding: 25; -fx-background-radius: 10;" styleClass="fondo-panel">
+                     <children>
+                        <Button onAction="#accionCambiarPin" prefHeight="40.0" prefWidth="250.0" styleClass="boton-secundario" text="🔑 Cambiar PIN de Acceso" />
+                        <Label style="-fx-font-size: 12px;" styleClass="texto-secundario" text="Zona de Peligro:" />
+                        <Button onAction="#accionEliminarCuenta" prefHeight="40.0" prefWidth="250.0" style="-fx-background-color: #F44336; -fx-text-fill: white;" text="🗑️ Eliminar mi cuenta y datos" />
+                     </children>
+                  </VBox>
+               </children>
+            </VBox>
+         </children>
+      </StackPane>
+   </center>
+</BorderPane>

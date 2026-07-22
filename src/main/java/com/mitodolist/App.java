@@ -16,6 +16,9 @@ public class App extends Application {
     // Variables para calcular el movimiento del mouse (Drag & Drop)
     private static double xOffset = 0;
     private static double yOffset = 0;
+    // Variables para el Auto-Bloqueo por Inactividad
+    private static long ultimoMovimiento = System.currentTimeMillis();
+    private static Thread hiloMonitor;
 
     @Override
     public void start(Stage ventana) throws Exception {
@@ -27,6 +30,7 @@ public class App extends Application {
         // --- 2. CICLO DE INICIO ---
         GestorBaseDatos.restaurarBackupSiEsNecesario();        
         GestorBaseDatos.inicializarEstructura();
+        GestorConfiguracion.inicializarTabla();
         GestorBaseDatos.migrarDatosAntiguos();
 
         // --- 3. ENRUTAMIENTO ---
@@ -34,7 +38,7 @@ public class App extends Application {
         boolean recordarSesion = GestorBaseDatos.isSesionRecordada();
 
         if (tieneUsuario && recordarSesion) {
-            cambiarEscena("VentanaPrincipal.fxml", "Mi TodoList V5.0.0e");
+            cambiarEscena("VentanaPrincipal.fxml", "Mi TodoList V6.0.0e");
         } else {
             cambiarEscena("VentanaLogin.fxml", "Acceso - Mi TodoList");
         }
@@ -48,6 +52,7 @@ public class App extends Application {
             GestorBaseDatos.realizarBackup();
         });
 
+        iniciarMonitorInactividad();
         ventana.show();
     }
 
@@ -68,7 +73,11 @@ public class App extends Application {
             javafx.scene.control.Label lblTitulo = new javafx.scene.control.Label(titulo);
             lblTitulo.setStyle("-fx-text-fill: #AAAAAA; -fx-font-size: 14px; -fx-font-weight: bold;");
             javafx.scene.layout.HBox.setHgrow(lblTitulo, javafx.scene.layout.Priority.ALWAYS);
-            lblTitulo.setMaxWidth(Double.MAX_VALUE); 
+            lblTitulo.setMaxWidth(Double.MAX_VALUE);
+
+            // Leemos la configuración de Apariencia global
+            Configuracion config = GestorConfiguracion.cargarConfiguracion();
+            String colorAcento = config.getColorAcento();
 
             // Botón Minimizar
             javafx.scene.control.Button btnMinimizar = new javafx.scene.control.Button("—");
@@ -132,8 +141,26 @@ public class App extends Application {
             Scene escena = new Scene(contenedorMaestro);
             escena.getStylesheets().add(App.class.getResource("/com/mitodolist/estilos.css").toExternalForm());
 
-            escenarioPrincipal.setTitle(titulo);
+            // ==============================================================
+            // 🎨 INYECCIÓN DINÁMICA DEL TEMA Y COLOR DE ACENTO
+            // ==============================================================
+            // Usamos la variable 'config' que ya cargamos al principio del método
+            
+            // 1. Inyectamos la variable CSS global con el color del usuario
+            contenedorMaestro.setStyle("-color-acento: " + config.getColorAcento() + ";");
+            
+            // 2. Si el usuario eligió Modo Claro, encendemos la clase maestra
+            if (config.isTemaClaro()) {
+                contenedorMaestro.getStyleClass().add("tema-claro");
+            }
+            // ==============================================================
+            // 🚨 NUEVO: Sensores globales de actividad para el Auto-Bloqueo
+            escena.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_MOVED, e -> ultimoMovimiento = System.currentTimeMillis());
+            escena.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> ultimoMovimiento = System.currentTimeMillis());
+            escena.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_CLICKED, e -> ultimoMovimiento = System.currentTimeMillis());
+
             escenarioPrincipal.setScene(escena);
+            escenarioPrincipal.show();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -180,5 +207,44 @@ public class App extends Application {
 
     public static void main(String[] args) {
         launch(args);
+    }
+
+    private static void iniciarMonitorInactividad() {
+        if (hiloMonitor != null) return; // Evita crear múltiples monitores
+        
+        hiloMonitor = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(5000); // Revisa cada 5 segundos para no consumir recursos
+                    
+                    // Solo revisa si hay un usuario dentro (logueado)
+                    if (GestorBaseDatos.idUsuarioActual != -1) {
+                        Configuracion config = GestorConfiguracion.cargarConfiguracion();
+                        int minutosBloqueo = config.getBloqueoInactividad();
+                        
+                        if (minutosBloqueo > 0) {
+                            long limiteMs = minutosBloqueo * 60 * 1000L;
+                            long tiempoInactivo = System.currentTimeMillis() - ultimoMovimiento;
+                            
+                            // Si superaste el límite de tiempo...
+                            if (tiempoInactivo > limiteMs) {
+                                
+                                // El cambio de escena DEBE hacerse en el hilo principal de JavaFX
+                                javafx.application.Platform.runLater(() -> {
+                                    System.out.println("🔒 Tiempo de inactividad superado. Bloqueando sesión...");
+                                    GestorBaseDatos.idUsuarioActual = -1; // Cierre de sesión lógico
+                                    cambiarEscena("VentanaLogin.fxml", "Acceso - Mi TodoList");
+                                });
+                                
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        });
+        hiloMonitor.setDaemon(true);
+        hiloMonitor.start();
     }
 }

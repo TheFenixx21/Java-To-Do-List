@@ -154,6 +154,9 @@ public class GestorBaseDatos {
             // Requisitos Futuros (V6, V7... solo añade una línea aquí abajo)
             // inyectarColumnaSiFalta(conn, "tareas", "nueva_funcion", "TEXT");
 
+            migrarPinesAHash();
+            migrarTareasAEncriptacion();
+
             // --- LIMPIEZA DE BASURA DE LA V3 ---
             java.io.File archivoJson = new java.io.File(CARPETA_APP + java.io.File.separator + "tareas.json");
             if (archivoJson.exists()) {
@@ -185,7 +188,7 @@ public class GestorBaseDatos {
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    Tarea t = new Tarea(rs.getString("descripcion"));
+                    Tarea t = new Tarea(desencriptarTexto(rs.getString("descripcion")));
                     t.setId(rs.getInt("id"));
                     t.setCompletada(rs.getInt("completada") == 1);
                     t.setExpandida(rs.getInt("expandida") == 1); // Ahora esto funciona sin romper el código
@@ -227,7 +230,7 @@ public class GestorBaseDatos {
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
-            pstmt.setString(1, t.getDescripcion());
+            pstmt.setString(1, encriptarTexto(t.getDescripcion()));
             pstmt.setInt(2, t.isCompletada() ? 1 : 0);
             pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
             pstmt.setInt(4, idCategoria);
@@ -256,7 +259,7 @@ public class GestorBaseDatos {
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
-            pstmt.setString(1, t.getDescripcion());
+            pstmt.setString(1, encriptarTexto(t.getDescripcion()));
             pstmt.setInt(2, t.isCompletada() ? 1 : 0);
             pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
             pstmt.setInt(4, obtenerIdCategoria(t.getCategoria())); 
@@ -455,7 +458,7 @@ public class GestorBaseDatos {
 
             // 2. Registramos al usuario en la base de datos
             pstmt.setString(1, nombre);
-            pstmt.setString(2, pin);
+            pstmt.setString(2, encriptarPIN(pin)); // Encriptamos el PIN antes de guardar
             pstmt.setInt(3, recordarSesion ? 1 : 0);
             pstmt.executeUpdate();
             
@@ -550,7 +553,7 @@ public class GestorBaseDatos {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, nombre);
-            pstmt.setString(2, pin);
+            pstmt.setString(2, encriptarPIN(pin)); // Encriptamos el PIN antes de comparar
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     idUsuarioActual = rs.getInt("id"); // ¡Identificamos quién acaba de entrar!
@@ -694,6 +697,164 @@ public class GestorBaseDatos {
                     System.out.println("No se encontraron respaldos. Se creará una base de datos en blanco.");
                 }
             }
+        }
+    }
+
+    // =======================================================
+    // 🔐 MOTOR CRIPTOGRÁFICO (SHA-256)
+    // =======================================================
+    public static String encriptarPIN(String pinOriginal) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(pinOriginal.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder(2 * hash.length);
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString(); // Devuelve el hash indescifrable
+        } catch (Exception e) {
+            System.out.println("Error crítico en Criptografía: " + e.getMessage());
+            return pinOriginal; // Fallback de emergencia
+        }
+    }
+
+    public static boolean actualizarPin(String nuevoPin) {
+        if (idUsuarioActual == -1) return false;
+        String sql = "UPDATE usuarios SET pin = ? WHERE id = ?";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // 🚨 Guardamos el PIN pasando primero por la encriptación
+            pstmt.setString(1, encriptarPIN(nuevoPin));
+            pstmt.setInt(2, idUsuarioActual);
+            pstmt.executeUpdate();
+            return true;
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al actualizar PIN: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // =======================================================
+    // 🔐 MOTOR DE ENCRIPTACIÓN BIDIRECCIONAL (AES-128 PARA TAREAS)
+    // =======================================================
+    private static final String CLAVE_SECRETA_AES = "MiT0d0L1stS3cur3"; // Llave maestra de 16 caracteres
+
+    public static String encriptarTexto(String textoPlano) {
+        try {
+            java.security.Key aesKey = new javax.crypto.spec.SecretKeySpec(CLAVE_SECRETA_AES.getBytes(), "AES");
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES");
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, aesKey);
+            byte[] encriptado = cipher.doFinal(textoPlano.getBytes());
+            // Añadimos la firma "AES:" para que el sistema sepa que esta tarea ya está protegida
+            return "AES:" + java.util.Base64.getEncoder().encodeToString(encriptado); 
+        } catch (Exception e) {
+            return textoPlano; // Fallback de emergencia
+        }
+    }
+
+    public static String desencriptarTexto(String textoEncriptado) {
+        // Si la tarea no tiene nuestra firma, significa que es una tarea vieja en texto plano
+        if (textoEncriptado == null || !textoEncriptado.startsWith("AES:")) {
+            return textoEncriptado; 
+        }
+        try {
+            java.security.Key aesKey = new javax.crypto.spec.SecretKeySpec(CLAVE_SECRETA_AES.getBytes(), "AES");
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES");
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, aesKey);
+            
+            // Recortamos los primeros 4 caracteres ("AES:") antes de desencriptar
+            String base64Real = textoEncriptado.substring(4);
+            byte[] decodificado = java.util.Base64.getDecoder().decode(base64Real);
+            byte[] desencriptado = cipher.doFinal(decodificado);
+            return new String(desencriptado);
+        } catch (Exception e) {
+            return "Error de seguridad (Datos corruptos)";
+        }
+    }
+
+    // =======================================================
+    // 🔄 SCRIPTS DE MIGRACIÓN SILENCIOSA
+    // =======================================================
+    public static void migrarPinesAHash() {
+        String sqlSelect = "SELECT id, pin FROM usuarios";
+        String sqlUpdate = "UPDATE usuarios SET pin = ? WHERE id = ?";
+        try (Connection conn = conectar(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sqlSelect)) {
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String pin = rs.getString("pin");
+                // Un hash SHA-256 en Hexadecimal SIEMPRE tiene 64 caracteres.
+                // Si tiene menos, es el PIN de un usuario antiguo en texto plano.
+                if (pin != null && pin.length() != 64) {
+                    try (PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                        pstmt.setString(1, encriptarPIN(pin));
+                        pstmt.setInt(2, id);
+                        pstmt.executeUpdate();
+                        System.out.println("🔐 PIN del usuario ID " + id + " migrado a Hash SHA-256.");
+                    }
+                }
+            }
+        } catch (SQLException e) {}
+    }
+
+    public static void migrarTareasAEncriptacion() {
+        String sqlSelect = "SELECT id, descripcion FROM tareas";
+        String sqlUpdate = "UPDATE tareas SET descripcion = ? WHERE id = ?";
+        try (Connection conn = conectar(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sqlSelect)) {
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String desc = rs.getString("descripcion");
+                // Si la tarea no empieza con "AES:", la encriptamos y la sobreescribimos
+                if (desc != null && !desc.startsWith("AES:")) {
+                    try (PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                        pstmt.setString(1, encriptarTexto(desc));
+                        pstmt.setInt(2, id);
+                        pstmt.executeUpdate();
+                        System.out.println("🛡️ Tarea ID " + id + " encriptada con AES-128.");
+                    }
+                }
+            }
+        } catch (SQLException e) {}
+    }
+
+    // =======================================================
+    // 🗑️ PROTOCOLO DE DESTRUCCIÓN TOTAL DE CUENTA
+    // =======================================================
+    public static boolean eliminarUsuarioCompleto(String pinConfirmacion) {
+        // 1. Doble validación de seguridad (Verificamos que sea el dueño)
+        if (!autenticarUsuario(obtenerNombreUsuario(), pinConfirmacion)) {
+            return false;
+        }
+
+        try (Connection conn = conectar()) {
+            // 2. Ejecutamos la destrucción en orden inverso para no dejar huérfanos
+            
+            // A) Destruimos todas sus Tareas y Subtareas
+            try (PreparedStatement pstmt1 = conn.prepareStatement("DELETE FROM tareas WHERE id_usuario = ?")) {
+                pstmt1.setInt(1, idUsuarioActual);
+                pstmt1.executeUpdate();
+            }
+            
+            // B) Destruimos sus Categorías (Listas)
+            try (PreparedStatement pstmt2 = conn.prepareStatement("DELETE FROM categorias WHERE id_usuario = ?")) {
+                pstmt2.setInt(1, idUsuarioActual);
+                pstmt2.executeUpdate();
+            }
+            
+            // C) Destruimos la Cuenta de Usuario
+            try (PreparedStatement pstmt3 = conn.prepareStatement("DELETE FROM usuarios WHERE id = ?")) {
+                pstmt3.setInt(1, idUsuarioActual);
+                pstmt3.executeUpdate();
+            }
+            
+            // 3. Borramos el rastro en la RAM y cerramos sesión lógicamente
+            idUsuarioActual = -1;
+            return true;
+            
+        } catch (SQLException e) {
+            System.out.println("Error crítico al ejecutar el protocolo de destrucción: " + e.getMessage());
+            return false;
         }
     }
 

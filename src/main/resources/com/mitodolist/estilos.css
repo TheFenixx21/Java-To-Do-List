@@ -1,301 +1,154 @@
+/* =========================================================
+   1. VARIABLES GLOBALES (MODO OSCURO POR DEFECTO)
+   ========================================================= */
+.root {
+    -bg-fondo: #0F0F0F;
+    -bg-panel: #1A1A1A;
+    -bg-barra: #121212;
+    -bg-caja: #1E1E1E;
+    -texto-principal: white;
+    -texto-secundario: #AAAAAA;
+    -borde-color: #333333;
+    -color-acento: #C2185B; /* Sobreescrito desde Java */
+}
 
+/* =========================================================
+   2. EL MODO CLARO (Se activa desde Java)
+   ========================================================= */
+.tema-claro {
+    -bg-fondo: #E2E8F0;
+    -bg-panel: #F7FAFC;
+    -bg-barra: #CBD5E0;
+    -bg-caja: #FFFFFF;
+    -texto-principal: #2D3748; 
+    -texto-secundario: #718096;
+    -borde-color: #A0AEC0;
+}
+
+/* =========================================================
+   3. CLASES ESTRUCTURALES BÁSICAS
+   ========================================================= */
+.fondo-principal { -fx-background-color: -bg-fondo; }
+.fondo-panel     { -fx-background-color: -bg-panel; }
+.fondo-barra     { -fx-background-color: -bg-barra; }
+.fondo-caja      { -fx-background-color: -bg-caja; }
+.texto-principal  { -fx-text-fill: -texto-principal; }
+.texto-secundario { -fx-text-fill: -texto-secundario; }
+.texto-acento     { -fx-text-fill: -color-acento; }
+.borde-estandar { -fx-border-color: -borde-color; -fx-border-width: 1; }
+
+/* Botones Básicos */
+.boton-acento {
+    -fx-background-color: -color-acento;
+    -fx-text-fill: white; 
+    -fx-background-radius: 20px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.boton-acento:hover { -fx-opacity: 0.8; }
+.boton-secundario {
+    -fx-background-color: -bg-caja;
+    -fx-text-fill: -texto-principal;
+    -fx-background-radius: 20px;
+    -fx-cursor: hand;
+}
+.boton-secundario:hover { -fx-background-color: -bg-barra; }
+.boton-transparente {
+    -fx-background-color: transparent;
+    -fx-text-fill: -texto-principal;
+    -fx-cursor: hand;
+}
+.boton-transparente:hover { -fx-text-fill: -color-acento; }
+
+/* Tarjetas de Configuración */
+.tarjeta-configuracion {
+    -fx-background-color: -bg-caja;
+    -fx-background-radius: 10;
+    -fx-padding: 20;
+    -fx-alignment: center-left;
+    -fx-cursor: hand;
+}
+.tarjeta-configuracion:hover {
+    -fx-background-color: -bg-barra;
+    -fx-border-color: -color-acento;
+    -fx-border-radius: 10;
+}
+
+/* =========================================================
+   4. CELDAS DE TAREAS (SOLUCIÓN A ERRORES 4, 6 Y 9)
+   ========================================================= */
 .list-view {
-    -fx-background-color: #0F0F0F;
-    -fx-control-inner-background: #0F0F0F;
+    -fx-background-color: transparent;
+    -fx-control-inner-background: -bg-fondo;
     -fx-background-insets: 0;
     -fx-padding: 0;
 }
-
-
 .list-cell {
-    -fx-text-fill: white;
     -fx-background-color: transparent;
 }
-
-
 .list-cell:filled:selected:focused, .list-cell:filled:selected {
-    -fx-background-color: #2A2A2A;
-    -fx-text-fill: white;
+    -fx-background-color: -bg-caja;
 }
-
-/* --- ESTILOS PARA EL CALENDARIO (DATEPICKER) --- */
-
-/* 1. El fondo general de la ventana emergente */
-.date-picker-popup {
-    -fx-background-color: #0F0F0F;
-    -fx-border-color: #333333;
-}
-
-/* 2. Los cuadros de los días */
-.date-picker-popup .day-cell {
-    -fx-background-color: #0F0F0F;
-    -fx-text-fill: #CCCCCC;
-}
-
-/* 3. Efecto al pasar el ratón sobre un día */
-.date-picker-popup .day-cell:hover {
-    -fx-background-color: #333333;
-}
-
-/* 4. El día seleccionado actualmente */
-.date-picker-popup .selected {
-    -fx-background-color: #c2185cad;
-    -fx-text-fill: white;
+/* Clases inyectadas desde Java para las tareas */
+.celda-padre {
+    -fx-text-fill: -texto-principal;
+    -fx-font-size: 16px;
     -fx-font-weight: bold;
 }
-
-/* 5. Arreglar la barra superior (Mes, Año y Flechas) */
-.date-picker-popup .month-year-pane {
-    -fx-background-color: #1E1E1E;
-}
-.date-picker-popup .month-year-pane .label {
-    -fx-text-fill: white;
-}
-/* Las flechitas de cambiar mes */
-.date-picker-popup .left-arrow, 
-.date-picker-popup .right-arrow {
-    -fx-background-color: white; 
-}
-.date-picker-popup .left-button, 
-.date-picker-popup .right-button {
-    -fx-background-color: transparent;
-}
-.date-picker-popup .left-button:hover, 
-.date-picker-popup .right-button:hover {
-    -fx-background-color: #333333;
-}
-
-/* 8. Destacar el DÍA DE HOY (Forzando el pintado) */
-.date-picker-popup .calendar-grid .day-cell.today {
-    -fx-background-color: #4CAF50 !important;
-    -fx-background-insets: 1;
-    -fx-background: #4CAF50;
-    -fx-text-fill: white !important;
-    -fx-font-weight: bold;
-}
-
-/* 9. La barra de los nombres de los días (Dom, Lun, Mar...) */
-.date-picker-popup .day-name-cell {
-    -fx-background-color: #1E1E1E;
-    -fx-text-fill: white;
-}
-
-/* =========================================================
-   V5.0.0e: DOMANDO EL TEMA CLARO DE JAVAFX
-   ========================================================= */
-
-/* --- 1. BARRAS DE DESPLAZAMIENTO (SCROLLBARS) --- */
-.scroll-bar:vertical, .scroll-bar:horizontal {
-    -fx-background-color: transparent;
-}
-
-/* El "carril" por donde se mueve la barra */
-.scroll-bar:vertical .track, .scroll-bar:horizontal .track {
-    -fx-background-color: #0F0F0F;
-    -fx-border-color: transparent;
-}
-
-/* La "pastilla" que arrastras con el mouse */
-.scroll-bar:vertical .thumb, .scroll-bar:horizontal .thumb {
-    -fx-background-color: #333333;
-    -fx-background-radius: 5em; /* Bordes redondeados modernos */
-}
-
-.scroll-bar:vertical .thumb:hover, .scroll-bar:horizontal .thumb:hover {
-    -fx-background-color: #555555;
-}
-
-/* Ocultamos los feos botones de flechas de los extremos */
-.scroll-bar:vertical .increment-button, .scroll-bar:vertical .decrement-button,
-.scroll-bar:horizontal .increment-button, .scroll-bar:horizontal .decrement-button {
-    -fx-padding: 0;
-}
-.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
-    -fx-shape: " "; 
-}
-
-
-/* --- 2. MENÚS DESPLEGABLES Y CLIC DERECHO --- */
-.context-menu {
-    -fx-background-color: #1E1E1E;
-    -fx-border-color: #333333;
-    -fx-border-width: 1px;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 5); /* Sombra elegante */
-}
-
-.menu-item {
-    -fx-padding: 8 15 8 15;
-}
-
-.menu-item .label {
-    -fx-text-fill: #E0E0E0;
+.celda-hija {
+    -fx-text-fill: -texto-secundario;
     -fx-font-size: 14px;
 }
 
-.menu-item:focused {
-    -fx-background-color: #333333; /* Efecto hover del menú */
-}
-
-
-/* --- 3. VENTANAS EMERGENTES (ALERTAS Y DIÁLOGOS) --- */
-.dialog-pane {
-    -fx-background-color: #1E1E1E;
-    -fx-border-color: #333333;
-    -fx-border-width: 1px;
-}
-
-/* Textos dentro de la alerta */
-.dialog-pane .label {
-    -fx-text-fill: white;
-}
-
-/* Panel superior de la alerta */
-.dialog-pane:header .header-panel {
-    -fx-background-color: #121212;
-}
-
-/* Estilización de los botones de "Aceptar" / "Cancelar" */
-.dialog-pane .button-bar .button {
-    -fx-background-color: #C2185B; /* Tu color rosa/magenta de acento */
-    -fx-text-fill: white;
-    -fx-font-weight: bold;
-    -fx-cursor: hand;
-    -fx-background-radius: 20px;
-}
-
-.dialog-pane .button-bar .button:hover {
-    -fx-background-color: #E91E63;
-}
-
-/* --- 4. SELECTOR DE FECHAS BÁSICO (DATEPICKER) --- */
-.date-picker-popup {
-    -fx-background-color: #1E1E1E;
-    -fx-border-color: #333333;
-}
-.date-picker-popup .month-year-pane {
-    -fx-background-color: #121212;
-}
-.date-picker-popup .month-year-pane .label {
-    -fx-text-fill: white;
-}
-.date-picker-popup .day-cell {
-    -fx-background-color: #1E1E1E;
-    -fx-text-fill: #E0E0E0;
-}
-.date-picker-popup .day-cell:hover {
-    -fx-background-color: #333333;
-}
-.date-picker-popup .today {
-    -fx-background-color: #C2185B;
-    -fx-text-fill: white;
-}
-
 /* =========================================================
-   V5.0.0e: DOMANDO LOS COMPONENTES INTERNOS DE DIÁLOGOS
+   5. COMPONENTES ESTÉTICOS AVANZADOS (CÁPSULAS Y DATEPICKERS)
    ========================================================= */
-
-/* 1. Textos principales de la ventana */
-.dialog-pane > *.label.content {
-    -fx-text-fill: #E0E0E0;
-    -fx-font-size: 14px;
-}
-
-/* 2. Panel superior (Header) donde dice "Has creado..." */
-.dialog-pane:header .header-panel {
-    -fx-background-color: #0A0A0A;
-}
-.dialog-pane:header .header-panel .label {
-    -fx-text-fill: white;
-    -fx-font-weight: bold;
-    -fx-font-size: 15px;
-}
-
-/* 3. Cajas de texto para escribir (TextInputDialog) */
-.dialog-pane .text-input {
-    -fx-background-color: #1E1E1E;
-    -fx-text-fill: white;
-    -fx-border-color: #444444;
-    -fx-border-radius: 4px;
-    -fx-padding: 8px;
-}
-.dialog-pane .text-input:focused {
-    -fx-border-color: #C2185B;
-}
-
-/* 4. Listas Desplegables (ChoiceDialog) */
-.dialog-pane .combo-box {
-    -fx-background-color: #1E1E1E;
-    -fx-border-color: #444444;
-    -fx-border-radius: 4px;
-}
-.dialog-pane .combo-box .list-cell {
-    -fx-text-fill: white;
-}
-.combo-box-popup .list-view {
-    -fx-background-color: #1E1E1E;
-    -fx-border-color: #333333;
-}
-.combo-box-popup .list-view .list-cell {
-    -fx-text-fill: white;
-    -fx-padding: 8px 12px;
-}
-.combo-box-popup .list-view .list-cell:hover,
-.combo-box-popup .list-view .list-cell:selected {
-    -fx-background-color: #C2185B; /* Fondo magenta al pasar el ratón */
-}
-.dialog-pane .combo-box .arrow {
-    -fx-background-color: white;
-}
-.dialog-pane .combo-box .arrow-button {
-    -fx-background-color: transparent;
-}
-
-/* 5. Selector de Fecha embebido (Dialog<LocalDate>) */
-.dialog-pane .date-picker > .text-field {
-    -fx-background-color: #1E1E1E;
-    -fx-text-fill: white;
-    -fx-border-color: #444444;
-    -fx-padding: 5px;
-}
-.dialog-pane .date-picker > .arrow-button {
-    -fx-background-color: #333333;
-}
-.dialog-pane .date-picker > .arrow-button:hover {
-    -fx-background-color: #C2185B;
-}
-
-/* 6. Contenedor de Contenido (Destruye el marco blanco detrás del DatePicker) */
-.dialog-pane > .content {
-    -fx-background-color: #1E1E1E;
-}
-
-/* Forzamos al DatePicker a ser transparente para que herede el fondo de la ventana */
-.dialog-pane .date-picker {
-    -fx-background-color: transparent;
-}
-
-/* =========================================================
-   V5.0.0e: BARRA DE HERRAMIENTAS ULTRA REFINADA
-   ========================================================= */
-
-/* 1. Buscador de Texto (Estilo Cápsula) */
+/* Buscador de Texto */
 .caja-busqueda {
-    -fx-background-color: #121212; /* Fondo muy oscuro, igual que tu barra inferior */
-    -fx-text-fill: white;
-    -fx-prompt-text-fill: #777777;
-    -fx-border-color: #333333;
+    -fx-background-color: -bg-barra;
+    -fx-text-fill: -texto-principal;
+    -fx-prompt-text-fill: -texto-secundario;
+    -fx-border-color: -borde-color;
     -fx-border-radius: 20px;
     -fx-background-radius: 20px;
     -fx-padding: 0 15px;
     -fx-pref-height: 35px;
     -fx-max-height: 35px;
+    -fx-font-size: 14px;
 }
+.caja-busqueda:focused { -fx-border-color: -color-acento; }
 
-.caja-busqueda:focused {
-    -fx-border-color: #C2185B; /* Brillo magenta al escribir */
+/* Entrada de Nueva Tarea */
+.caja-texto {
+    -fx-background-color: -bg-caja;
+    -fx-text-fill: -texto-principal;
+    -fx-prompt-text-fill: -texto-secundario;
+    -fx-border-color: transparent;
+    -fx-border-radius: 20px;
+    -fx-background-radius: 20px;
+    -fx-padding: 0 15px;
 }
+.caja-texto:focused { -fx-border-color: -color-acento; }
 
-/* 2. Selector de Fecha (Aplica SOLO al filtro central) */
+/* Menús Desplegables (Cápsulas) */
+.combo-capsula {
+    -fx-background-color: -borde-color, -bg-barra; 
+    -fx-background-insets: 0, 1; 
+    -fx-background-radius: 50em, 50em; 
+    -fx-pref-height: 35px;
+    -fx-min-height: 35px;
+    -fx-padding: 0; 
+}
+.combo-capsula .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -texto-principal;
+    -fx-font-size: 15px;
+    -fx-padding: 0 0 0 15px;
+}
+.combo-capsula .arrow-button { -fx-background-color: transparent; -fx-padding: 0 15px 0 5px; }
+.combo-capsula .arrow { -fx-background-color: -texto-secundario; }
+
+/* DatePicker (Filtro Central) */
 .date-picker-filtro {
     -fx-background-color: transparent;
     -fx-pref-width: 170px;
@@ -304,145 +157,146 @@
     -fx-max-height: 35px;
 }
 .date-picker-filtro > .text-field {
-    -fx-background-color: #121212;
-    -fx-text-fill: white;
-    -fx-prompt-text-fill: #777777;
+    -fx-background-color: -bg-barra;
+    -fx-text-fill: -texto-principal;
+    -fx-prompt-text-fill: -texto-secundario;
     -fx-font-size: 14px;
-    -fx-border-color: #333333;
+    -fx-border-color: -borde-color;
     -fx-border-width: 1px 0px 1px 1px;
-    -fx-border-radius: 20px 0 0 20px;
+    -fx-border-radius: 20px 0 0 20px; /* Curva restaurada */
     -fx-background-radius: 20px 0 0 20px;
     -fx-padding: 0 10px 0 15px;
 }
 .date-picker-filtro > .arrow-button {
-    -fx-background-color: #121212;
-    -fx-border-color: #333333;
+    -fx-background-color: -bg-barra;
+    -fx-border-color: -borde-color;
     -fx-border-width: 1px 1px 1px 0px; 
-    -fx-border-radius: 0 20px 20px 0;
+    -fx-border-radius: 0 20px 20px 0; /* Curva restaurada */
     -fx-background-radius: 0 20px 20px 0;
     -fx-padding: 0 15px 0 10px;
 }
-.date-picker-filtro > .arrow-button > .arrow {
-    -fx-background-color: #AAAAAA;
-}
+.date-picker-filtro > .arrow-button > .arrow { -fx-background-color: -texto-secundario; }
 .date-picker-filtro > .arrow-button:hover {
-    -fx-background-color: #C2185B;
-    -fx-border-color: #C2185B;
+    -fx-background-color: -color-acento;
+    -fx-border-color: -color-acento;
 }
-.date-picker-filtro > .arrow-button:hover > .arrow {
-    -fx-background-color: white;
-}
+.date-picker-filtro > .arrow-button:hover > .arrow { -fx-background-color: white; }
 
-/* 3. Botón "Limpiar" (Sin fondo, solo el ícono/texto que se ilumina) */
-.boton-limpiar {
-    -fx-background-color: transparent;
-    -fx-text-fill: #777777;
-    -fx-font-size: 16px;
-    -fx-font-weight: bold;
-    -fx-cursor: hand;
-    -fx-padding: 0 10px;
-    -fx-pref-height: 35px;
-    -fx-max-height: 35px;
-    -fx-alignment: center;
-}
-.boton-limpiar:hover {
-    -fx-text-fill: #C2185B; /* Se pinta de magenta al pasar el mouse */
-}
-
-/* =========================================================
-   ESTILO CÁPSULA PARA LOS SELECTORES LATERALES (OPCIÓN NUCLEAR)
-   ========================================================= */
-
-/* 1. EL CONTENEDOR: Técnica del "Falso Borde" */
-.combo-box.combo-capsula {
-    /* Capa 1 (Borde gris), Capa 2 (Fondo oscuro) */
-    -fx-background-color: #333333, #121212; 
-    /* La capa 2 se encoge 1 píxel hacia adentro revelando la capa 1 */
-    -fx-background-insets: 0, 1; 
-    /* Ambas capas son cápsulas perfectas, sin posibilidad de error */
-    -fx-background-radius: 50em, 50em; 
-    
-    -fx-pref-height: 35px;
-    -fx-min-height: 35px;
-    -fx-pref-width: 175px; 
-    -fx-min-width: 175px;
-    -fx-padding: 0; 
-}
-
-/* 2. LA CELDA INTERNA (Texto desaplastado y centrado) */
-.combo-box.combo-capsula .list-cell {
-    -fx-background-color: transparent;
-    -fx-text-fill: white;
-    -fx-font-size: 13px;
-    -fx-padding: 0 0 0 15px;
-    -fx-alignment: center-left;
-}
-
-/* 3. LA ZONA DE LA FLECHA (Transparente para no romper la curva) */
-.combo-box.combo-capsula .arrow-button {
-    -fx-background-color: transparent;
-    -fx-padding: 0 15px 0 5px;
-}
-
-/* 4. EL ÍCONO DE LA FLECHA */
-.combo-box.combo-capsula .arrow {
-    -fx-background-color: #AAAAAA;
-}
-
-/* =========================================================
-   ESTILIZACIÓN DE LA LISTA DESPLEGABLE (POPUP COMBOBOX)
-   ========================================================= */
-.combo-box-popup .list-view {
-    -fx-background-color: #1E1E1E;
-    -fx-border-color: #333333;
-    -fx-border-radius: 5px;
-    -fx-background-radius: 5px;
-}
-.combo-box-popup .list-view .list-cell {
-    -fx-text-fill: white;
-    -fx-padding: 8px 15px;
-    -fx-background-color: transparent;
-}
-.combo-box-popup .list-view .list-cell:hover,
-.combo-box-popup .list-view .list-cell:filled:selected {
-    -fx-background-color: #C2185B;
-    -fx-text-fill: white;
-}
-
-/* =========================================================
-   SELECTOR DE FECHA (BARRA INFERIOR DE CREACIÓN)
-   ========================================================= */
+/* DatePicker (Creación Inferior) */
 .date-picker-creacion {
     -fx-background-color: transparent;
     -fx-pref-width: 120px; 
     -fx-min-width: 120px;
-    -fx-max-width: 120px; /* Blindaje total contra estiramientos */
-    -fx-pref-height: 48px; 
-    -fx-max-height: 48px; /* Rompemos la camisa de fuerza heredada */
+    -fx-pref-height: 40px; 
 }
 .date-picker-creacion > .text-field {
-    -fx-background-color: #1A1A1A; 
-    -fx-text-fill: white;
-    -fx-prompt-text-fill: #777777;
+    -fx-background-color: -bg-caja; 
+    -fx-text-fill: -texto-principal;
+    -fx-prompt-text-fill: -texto-secundario;
     -fx-font-size: 14px;
     -fx-border-color: transparent; 
-    -fx-border-radius: 25px 0 0 25px;
+    -fx-border-radius: 25px 0 0 25px; /* Curva restaurada */
     -fx-background-radius: 25px 0 0 25px;
-    -fx-padding: 0 0 0 10px; /* Reducimos margen izquierdo para dar espacio al texto */
+    -fx-padding: 0 0 0 10px; 
 }
 .date-picker-creacion > .arrow-button {
-    -fx-background-color: #1A1A1A;
+    -fx-background-color: -bg-caja;
     -fx-border-color: transparent;
-    -fx-border-radius: 0 25px 25px 0;
+    -fx-border-radius: 0 25px 25px 0; /* Curva restaurada */
     -fx-background-radius: 0 25px 25px 0;
-    -fx-padding: 0 10px 0 5px; /* Reducimos margen derecho */
+    -fx-padding: 0 10px 0 5px; 
 }
-.date-picker-creacion > .arrow-button > .arrow {
-    -fx-background-color: #AAAAAA;
+.date-picker-creacion > .arrow-button > .arrow { -fx-background-color: -texto-secundario; }
+.date-picker-creacion > .arrow-button:hover { -fx-background-color: -color-acento; }
+.date-picker-creacion > .arrow-button:hover > .arrow { -fx-background-color: white; }
+
+/* Scrollbars Arreglados */
+.scroll-bar:vertical, .scroll-bar:horizontal { -fx-background-color: transparent; }
+.scroll-bar:vertical .track, .scroll-bar:horizontal .track {
+    -fx-background-color: -bg-fondo;
+    -fx-border-color: transparent;
 }
-.date-picker-creacion > .arrow-button:hover {
-    -fx-background-color: #C2185B;
+.scroll-bar:vertical .thumb, .scroll-bar:horizontal .thumb {
+    -fx-background-color: -borde-color;
+    -fx-background-radius: 5em;
 }
-.date-picker-creacion > .arrow-button:hover > .arrow {
-    -fx-background-color: white;
+.scroll-bar:vertical .thumb:hover, .scroll-bar:horizontal .thumb:hover { -fx-background-color: -texto-secundario; }
+.scroll-bar:vertical .increment-button, .scroll-bar:vertical .decrement-button,
+.scroll-bar:horizontal .increment-button, .scroll-bar:horizontal .decrement-button { -fx-padding: 0; }
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow { -fx-shape: " "; }
+
+/* =========================================================
+   6. VENTANAS EMERGENTES Y MENÚS
+   ========================================================= */
+.context-menu, .combo-box-popup .list-view {
+    -fx-background-color: -bg-caja;
+    -fx-border-color: -borde-color;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+}
+.menu-item .label, .combo-box-popup .list-view .list-cell { 
+    -fx-text-fill: -texto-principal; 
+    -fx-padding: 10px 15px; /* 🚨 FIX ERROR 3: Más espacio entre opciones */
+    -fx-font-size: 14px;    /* Letra un poco más grande y legible */
+}
+.menu-item:focused, .combo-box-popup .list-view .list-cell:hover {
+    -fx-background-color: -color-acento;
+    -fx-text-fill: white;
+}
+.dialog-pane {
+    -fx-background-color: -bg-fondo;
+    -fx-border-color: -borde-color;
+}
+.dialog-pane .label { -fx-text-fill: -texto-principal; }
+.dialog-pane:header .header-panel { -fx-background-color: -bg-barra; }
+.dialog-pane .button-bar .button {
+    -fx-background-color: -color-acento;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-background-radius: 20px;
+}
+.dialog-pane .text-input {
+    -fx-background-color: -bg-caja;
+    -fx-text-fill: -texto-principal;
+    -fx-border-color: -borde-color;
+}
+
+/* 🚨 REPARACIÓN DEL COMBOBOX EN LAS VENTANAS EMERGENTES */
+.dialog-pane .combo-box {
+    -fx-background-color: -bg-caja;
+    -fx-border-color: -borde-color;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+}
+/* El !important obliga a JavaFX a usar el color correcto para el texto seleccionado */
+.dialog-pane .combo-box .list-cell { 
+    -fx-text-fill: -texto-principal !important; 
+    -fx-background-color: transparent;
+    -fx-font-size: 14px;
+}
+.dialog-pane .combo-box .arrow { 
+    -fx-background-color: -texto-principal; 
+}
+.dialog-pane .combo-box .arrow-button { 
+    -fx-background-color: transparent; 
+}
+
+/* Interior DatePickers */
+.date-picker-popup { -fx-background-color: -bg-caja; -fx-border-color: -borde-color; }
+.date-picker-popup .month-year-pane { -fx-background-color: -bg-barra; }
+.date-picker-popup .month-year-pane .label { -fx-text-fill: -texto-principal; }
+.date-picker-popup .day-cell { -fx-background-color: -bg-caja; -fx-text-fill: -texto-principal; }
+.date-picker-popup .day-cell:hover { -fx-background-color: -bg-fondo; }
+.date-picker-popup .selected, .date-picker-popup .today {
+    -fx-background-color: -color-acento !important;
+    -fx-text-fill: white !important;
+}
+
+.boton-desplegable-celda {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-acento;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-padding: 0 5 0 0;
 }

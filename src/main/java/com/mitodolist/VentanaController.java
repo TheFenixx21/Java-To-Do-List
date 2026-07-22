@@ -6,7 +6,6 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
@@ -22,12 +21,10 @@ public class VentanaController {
     @FXML private ComboBox<String> comboFiltros;
     @FXML private ListView<Tarea> listaTareas;
     @FXML private TextField txtNuevaTarea;
-    @FXML private Button btnAgregar;
     @FXML private DatePicker calendarioPrincipal;
     @FXML private Label lblPendientes;
     @FXML private Label lblCompletadas;
     @FXML private Label lblAtrasadas;
-    @FXML private TextArea txtNotasRapidas;
     @FXML private javafx.scene.layout.VBox contenedorCategorias;
     @FXML private TextField txtBuscador;
     @FXML private DatePicker calendarioFiltro;
@@ -36,6 +33,8 @@ public class VentanaController {
     private ToDoList logica = new ToDoList();
     private int filtroActual = 1;
     private String categoriaActual = "Todas";
+    private boolean modoPrivacidadActivo = false;
+    private String formatoFechaActual = "dd/MM/yyyy";
 
     @FXML
     public void initialize() {
@@ -53,6 +52,13 @@ public class VentanaController {
         }
         if (calendarioFiltro != null) {
             calendarioFiltro.valueProperty().addListener((observable, oldValue, newValue) -> actualizarInterfaz());
+            // 🚨 FIX ERROR 4: Reconectamos el DatePicker de arriba con su diseño CSS
+            calendarioFiltro.getStyleClass().add("date-picker-filtro");
+        }
+        
+        // 🚨 FIX ERROR 4: Reconectamos el DatePicker de abajo con su diseño CSS
+        if (calendarioPrincipal != null) {
+            calendarioPrincipal.getStyleClass().add("date-picker-creacion");
         }
 
         // --- MENÚ CONTEXTUAL V4.0.0e ---
@@ -96,38 +102,58 @@ public class VentanaController {
                 if (vacio || tareaActual == null) {
                     setText(null);
                     setGraphic(null);
-                    setStyle(""); // Limpiamos la celda si está vacía
+                    // 🚨 Limpiamos las clases visuales y el "Ghosting" del modo enmascarado
+                    getStyleClass().removeAll("celda-padre", "celda-hija");
+                    setOnMouseEntered(null);
+                    setOnMouseExited(null);
                 } else {
-                    // 1. Procesamos la fecha (ahora aplica para padres e hijas)
+                    getStyleClass().removeAll("celda-padre", "celda-hija"); // Reseteo de seguridad
+                    
                     String textoFecha = "";
                     if (tareaActual.getFechaLimite() != null) {
-                        java.time.format.DateTimeFormatter formato = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        java.time.format.DateTimeFormatter formato = java.time.format.DateTimeFormatter.ofPattern(formatoFechaActual);
                         textoFecha = " 📅 [Vence: " + tareaActual.getFechaLimite().format(formato) + "]";
                     }
 
                     String estado = tareaActual.isCompletada() ? "[X]" : "[ ]";
                     boolean esSubtarea = tareaActual.getIdTareaPadre() != null;
 
-                    // 2. Aplicamos textos y estilos base
-                if (esSubtarea) {
-                    setText("      ↳ " + estado + " " + tareaActual.getDescripcion() + textoFecha);
-                    setStyle("-fx-text-fill: #AAAAAA; -fx-font-size: 14px;"); // Hija: Gris y más pequeña
-                } else {
-                    // --- CORRECCIÓN V5.0.0e: ENUMERACIÓN VISUAL DINÁMICA ---
-                    int numeroVisual = 1;
-                    // Contamos cuántas tareas principales hay ANTES de esta en la pantalla actual
-                    for (int i = 0; i < getIndex(); i++) {
-                        Tarea tAnterior = getListView().getItems().get(i);
-                        if (tAnterior.getIdTareaPadre() == null) {
-                            numeroVisual++;
-                        }
-                    }
+                    String descReal = tareaActual.getDescripcion();
+                    String descOculta = descReal.replaceAll("[^\\s]", "*"); 
                     
-                    setText(numeroVisual + ". " + estado + " " + tareaActual.getDescripcion() + textoFecha);
-                    setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"); // Padre: Blanca y fuerte
-                }
+                    String descMostrar = modoPrivacidadActivo ? descOculta : descReal;
+                    String textoBase = ""; 
 
-                    // 3. El Indicador Visual (Círculo de estado unificado)
+                    if (esSubtarea) {
+                        textoBase = "      ↳ " + estado + " ";
+                        setText(textoBase + descMostrar + textoFecha);
+                        // Usamos variable dinámica pero forzamos el tamaño
+                        setStyle("-fx-text-fill: -texto-secundario; -fx-font-size: 14px;"); 
+                    } else {
+                        int numeroVisual = 1;
+                        for (int i = 0; i < getIndex(); i++) {
+                            Tarea tAnterior = getListView().getItems().get(i);
+                            if (tAnterior.getIdTareaPadre() == null) numeroVisual++;
+                        }
+                        
+                        textoBase = numeroVisual + ". " + estado + " ";
+                        setText(textoBase + descMostrar + textoFecha);
+                        // Usamos variable dinámica pero forzamos el tamaño 16px
+                        setStyle("-fx-text-fill: -texto-principal; -fx-font-size: 16px; -fx-font-weight: bold;"); 
+                    }
+
+                    // --- EFECTO REVELADO AL PASAR EL RATÓN (HOVER) ---
+                    if (modoPrivacidadActivo) {
+                        final String baseFinal = textoBase;
+                        final String fechaFinal = textoFecha;
+                        
+                        setOnMouseEntered(e -> setText(baseFinal + descReal + fechaFinal));
+                        setOnMouseExited(e -> setText(baseFinal + descOculta + fechaFinal));
+                    } else {
+                        setOnMouseEntered(null);
+                        setOnMouseExited(null);
+                    }
+
                     javafx.scene.shape.Circle indicador = new javafx.scene.shape.Circle(esSubtarea ? 4 : 6); 
                     java.time.LocalDate hoy = java.time.LocalDate.now();
                     
@@ -141,30 +167,20 @@ public class VentanaController {
                         indicador.setFill(javafx.scene.paint.Color.web("#9E9E9E")); 
                     }
 
-                    // 4. CREACIÓN DEL NODO INTERACTIVO (BOTÓN DE PLEGADO)
                     if (!esSubtarea && tareaActual.getSubTareas() != null && !tareaActual.getSubTareas().isEmpty()) {
-                        
-                        // Fabricamos un pequeño botón transparente
                         javafx.scene.control.Button btnToggle = new javafx.scene.control.Button(tareaActual.isExpandida() ? "[-] " : "[+] ");
-                        btnToggle.setStyle("-fx-background-color: transparent; -fx-text-fill: #C2185B; -fx-cursor: hand; -fx-font-weight: bold; -fx-padding: 0 5 0 0;");
+                        btnToggle.getStyleClass().add("boton-desplegable-celda");
                         
-                        // Le enseñamos qué hacer al darle clic
                         btnToggle.setOnAction(e -> {
                             tareaActual.setExpandida(!tareaActual.isExpandida());                            
-                            // NUEVO: Usamos el bisturí para guardar la preferencia en el disco de inmediato
                             GestorBaseDatos.actualizarTarea(tareaActual);
-                            
-                            actualizarInterfaz(); // Recarga la lista para mostrar/ocultar las hijas
+                            actualizarInterfaz();
                         });
 
-                        // Empaquetamos el botón interactivo y el círculo en una caja horizontal (HBox)
-                        javafx.scene.layout.HBox cajaCelda = new javafx.scene.layout.HBox(btnToggle, indicador);
+                        javafx.scene.layout.HBox cajaCelda = new javafx.scene.layout.HBox(8, indicador, btnToggle);
                         cajaCelda.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-                        
-                        // Mostramos la caja en la interfaz
                         setGraphic(cajaCelda);
                     } else {
-                        // Si es subtarea o no tiene hijas, solo mostramos el círculo normal
                         setGraphic(indicador); 
                     }
                 }
@@ -178,31 +194,40 @@ public class VentanaController {
    private void actualizarInterfaz() {
         listaTareas.getItems().clear();
         
-        // 1. Obtenemos las tareas pre-filtradas (Pendientes/Completadas y Categoría)
         ArrayList<Tarea> listaPrincipales = logica.obtenerTareasFiltradas(filtroActual, categoriaActual);
         
-        // 2. Capturamos lo que el usuario escribió (Si los campos ya cargaron)
         String textoBusqueda = (txtBuscador != null && txtBuscador.getText() != null) ? txtBuscador.getText().toLowerCase().trim() : "";
         java.time.LocalDate fechaFiltro = (calendarioFiltro != null) ? calendarioFiltro.getValue() : null;
         
+        // 🚨 FIX: Leemos la configuración aquí (solo se ejecuta 1 vez al actualizar la lista)
+        Configuracion config = GestorConfiguracion.cargarConfiguracion();
+        modoPrivacidadActivo = config.isModoPrivacidad();
+        
+        // Memorizamos la apariencia
+        formatoFechaActual = config.getFormatoFecha();
+        aplicarFormatoCalendario(calendarioPrincipal, formatoFechaActual);
+        aplicarFormatoCalendario(calendarioFiltro, formatoFechaActual);
         for (Tarea principal : listaPrincipales) {
             
-            // --- FILTRADO DINÁMICO ---
             boolean coincideTexto = textoBusqueda.isEmpty() || principal.getDescripcion().toLowerCase().contains(textoBusqueda);
             boolean coincideFecha = fechaFiltro == null || (principal.getFechaLimite() != null && principal.getFechaLimite().isEqual(fechaFiltro));
             
-            // Si la tarea NO cumple, la saltamos
             if (!coincideTexto || !coincideFecha) {
                 continue; 
             }
             
             listaTareas.getItems().add(principal); 
             
-            // LÓGICA V5.0.0e: Si la madre está expandida y tiene hijas
             if (principal.isExpandida() && principal.getSubTareas() != null && !principal.getSubTareas().isEmpty()) {
-                // Ordenamos a las hijas y las mostramos
                 principal.getSubTareas().sort(ToDoList.ORDENADOR_TAREAS);
-                listaTareas.getItems().addAll(principal.getSubTareas());
+                
+                // 🚨 FIX: Filtramos las hijas antes de inyectarlas en la lista visual
+                for (Tarea hija : principal.getSubTareas()) {
+                    if (filtroActual == 1 && config.isOcultarCompletadasAuto() && hija.isCompletada()) {
+                        continue; // Saltamos esta subtarea, ya está completada
+                    }
+                    listaTareas.getItems().add(hija);
+                }
             }
         }
         
@@ -214,8 +239,11 @@ public class VentanaController {
     private void cargarMenuLateral() {
         contenedorCategorias.getChildren().clear();
 
+        // Arreglo para el botón "Ver Todas"
         javafx.scene.control.Button btnVerTodas = new javafx.scene.control.Button("🔎 Ver Todas");
-        btnVerTodas.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: normal; -fx-cursor: hand; -fx-padding: 8 0 8 10;");
+        btnVerTodas.getStyleClass().add("boton-transparente");
+        btnVerTodas.setStyle("-fx-font-size: 16px; -fx-padding: 8 0 8 10; -fx-alignment: center-left;");
+        btnVerTodas.setMaxWidth(Double.MAX_VALUE); // 🚨 FIX ERROR 1: Hace que todo el ancho sea clicable
         btnVerTodas.setOnAction(e -> { categoriaActual = "Todas"; actualizarInterfaz(); });
         contenedorCategorias.getChildren().add(btnVerTodas);
 
@@ -223,11 +251,12 @@ public class VentanaController {
 
         for (Categoria cat : categoriasBD) {
             javafx.scene.control.Button btn = new javafx.scene.control.Button(cat.getNombre());
-            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: normal; -fx-cursor: hand; -fx-padding: 8 0 8 10;");
-            
+            btn.getStyleClass().add("boton-transparente");
+            btn.setStyle("-fx-font-size: 16px; -fx-padding: 8 0 8 10; -fx-alignment: center-left;");
+            btn.setMaxWidth(Double.MAX_VALUE); 
             btn.setOnAction(e -> { categoriaActual = cat.getNombre(); actualizarInterfaz(); });
 
-            if (cat.getId() != GestorBaseDatos.obtenerIdCategoria("📌 Sin categoría")) { // Protegemos su lista default personal
+            if (cat.getId() != GestorBaseDatos.obtenerIdCategoria("📌 Sin categoría")) { 
                 javafx.scene.control.ContextMenu menuLista = new javafx.scene.control.ContextMenu();
                 
                 javafx.scene.control.MenuItem menuRenombrar = new javafx.scene.control.MenuItem("🖊 Renombrar Lista");
@@ -317,15 +346,57 @@ public class VentanaController {
     private void accionEliminar() {
         Tarea seleccionada = listaTareas.getSelectionModel().getSelectedItem();
         if (seleccionada != null) {
-            if (seleccionada.getIdTareaPadre() != null) {
-                Tarea padre = encontrarPadre(seleccionada);
-                if (padre != null) {
-                    logica.eliminarSubTarea(padre, seleccionada);
-                }
-            } else {
-                logica.eliminarTarea(seleccionada); // Pasamos el objeto directo, adiós a las decapitaciones aleatorias
+            
+            // 1. Evaluamos el contexto de la tarea para personalizar el mensaje
+            String titulo = "Eliminar Tarea";
+            String encabezado = "¿Estás seguro de eliminar esta tarea?";
+            String contenido = "Tarea: " + seleccionada.getDescripcion();
+
+            boolean tieneSubtareas = seleccionada.getIdTareaPadre() == null && seleccionada.getSubTareas() != null && !seleccionada.getSubTareas().isEmpty();
+
+            if (tieneSubtareas) {
+                titulo = "Eliminar Tarea Principal";
+                encabezado = "¡Atención! Esta tarea contiene sub-tareas.";
+                contenido = "Si eliminas esta tarea, TODAS sus sub-tareas (" + seleccionada.getSubTareas().size() + ") también serán destruidas irremediablemente.\n\n¿Deseas continuar?";
+            } else if (seleccionada.getIdTareaPadre() != null) {
+                titulo = "Eliminar Sub-tarea";
             }
-            actualizarInterfaz();
+
+            // 2. Construimos la barrera visual (Alerta)
+            javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+            alerta.setTitle(titulo);
+            alerta.setHeaderText(encabezado);
+            alerta.setContentText(contenido);
+            alerta.getButtonTypes().setAll(javafx.scene.control.ButtonType.YES, javafx.scene.control.ButtonType.NO);
+
+            // 3. Inyectamos nuestro diseño y el tema dinámico
+            try {
+                alerta.initStyle(javafx.stage.StageStyle.UNDECORATED);
+                alerta.getDialogPane().getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
+                alerta.getDialogPane().getStyleClass().add("mi-dialogo");
+                
+                Configuracion config = GestorConfiguracion.cargarConfiguracion();
+                alerta.getDialogPane().setStyle("-color-acento: " + config.getColorAcento() + ";");
+                if (config.isTemaClaro()) {
+                    alerta.getDialogPane().getStyleClass().add("tema-claro");
+                }
+            } catch (Exception e) {}
+
+            // 4. Pausamos la app y esperamos la decisión del usuario
+            java.util.Optional<javafx.scene.control.ButtonType> respuesta = alerta.showAndWait();
+            
+            // 5. Si el usuario está seguro, ejecutamos la guillotina
+            if (respuesta.isPresent() && respuesta.get() == javafx.scene.control.ButtonType.YES) {
+                if (seleccionada.getIdTareaPadre() != null) {
+                    Tarea padre = encontrarPadre(seleccionada);
+                    if (padre != null) {
+                        logica.eliminarSubTarea(padre, seleccionada);
+                    }
+                } else {
+                    logica.eliminarTarea(seleccionada); 
+                }
+                actualizarInterfaz();
+            }
         }
     }
 
@@ -531,25 +602,26 @@ public class VentanaController {
     // --- MÉTODO AUXILIAR PARA INYECTAR CSS Y FÍSICA A LAS VENTANAS EMERGENTES ---
     private void aplicarTemaOscuro(Dialog<?> dialogo) {
         try {
-            // 1. ¡Destruimos la barra blanca de Windows!
             dialogo.initStyle(javafx.stage.StageStyle.UNDECORATED);
-
-            // 2. Inyectamos nuestro archivo de estilos CSS
             dialogo.getDialogPane().getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
-            dialogo.setGraphic(null); // Quitamos el icono azul por defecto
+            dialogo.setGraphic(null); 
             dialogo.getDialogPane().getStyleClass().add("mi-dialogo");
 
-            // 3. Motor de Física: Permitimos que la ventanita se pueda arrastrar con el mouse
+            // 🚨 INYECTAMOS EL TEMA GLOBAL A LAS ALERTAS
+            Configuracion config = GestorConfiguracion.cargarConfiguracion();
+            dialogo.getDialogPane().setStyle("-color-acento: " + config.getColorAcento() + ";");
+            if (config.isTemaClaro()) {
+                dialogo.getDialogPane().getStyleClass().add("tema-claro");
+            }
+
             final double[] xOffset = {0};
             final double[] yOffset = {0};
 
-            // Cuando el usuario hace clic en cualquier parte de la alerta...
             dialogo.getDialogPane().setOnMousePressed(event -> {
                 xOffset[0] = event.getSceneX();
                 yOffset[0] = event.getSceneY();
             });
 
-            // Cuando el usuario arrastra el mouse...
             dialogo.getDialogPane().setOnMouseDragged(event -> {
                 javafx.stage.Stage stage = (javafx.stage.Stage) dialogo.getDialogPane().getScene().getWindow();
                 stage.setX(event.getScreenX() - xOffset[0]);
@@ -565,5 +637,68 @@ public class VentanaController {
     public void accionLimpiarFiltros() {
         if (txtBuscador != null) txtBuscador.clear();
         if (calendarioFiltro != null) calendarioFiltro.setValue(null);
+    }
+
+    @FXML
+    public void abrirConfiguracion() {
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(getClass().getResource("/com/mitodolist/VentanaConfiguracion.fxml"));
+            javafx.scene.Parent root = loader.load();
+            
+            // 🚨 INYECTAMOS EL TEMA GLOBAL A LA VENTANA DE CONFIGURACIÓN
+            Configuracion config = GestorConfiguracion.cargarConfiguracion();
+            root.setStyle("-color-acento: " + config.getColorAcento() + ";");
+            if (config.isTemaClaro()) {
+                root.getStyleClass().add("tema-claro");
+            }
+            
+            javafx.scene.Scene escenaConfig = new javafx.scene.Scene(root);
+            escenaConfig.getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
+            
+            javafx.stage.Stage stageConfig = new javafx.stage.Stage();
+            stageConfig.initStyle(javafx.stage.StageStyle.UNDECORATED); 
+            stageConfig.initModality(javafx.stage.Modality.APPLICATION_MODAL); 
+            
+            stageConfig.setTitle("Configuración - Mi ToDo List");
+            stageConfig.setScene(escenaConfig);
+
+            stageConfig.showAndWait(); 
+            actualizarInterfaz();            
+            
+            // 🚨 SOLUCIÓN AL ERROR 2: FORZAR ACTUALIZACIÓN DEL COLOR EN VIVO EN LA VENTANA PRINCIPAL
+            Configuracion configActualizada = GestorConfiguracion.cargarConfiguracion();
+            
+            // 1. Refrescamos el color de acento general
+            listaTareas.getScene().getRoot().setStyle("-color-acento: " + configActualizada.getColorAcento() + ";");
+            
+            // 2. Encendemos o apagamos la clase del Modo Claro
+            if (configActualizada.isTemaClaro()) {
+                if (!listaTareas.getScene().getRoot().getStyleClass().contains("tema-claro")) {
+                    listaTareas.getScene().getRoot().getStyleClass().add("tema-claro");
+                }
+            } else {
+                listaTareas.getScene().getRoot().getStyleClass().remove("tema-claro");
+            }
+            
+        } catch (java.io.IOException e) {
+            System.out.println("Error al abrir el panel de configuración: " + e.getMessage());
+        }
+    }
+
+    // --- MÉTODO PARA OBLIGAR A LOS CALENDARIOS A RESPETAR EL FORMATO ---
+    private void aplicarFormatoCalendario(DatePicker dp, String formato) {
+        if (dp == null) return;
+        java.time.format.DateTimeFormatter formateador = java.time.format.DateTimeFormatter.ofPattern(formato);
+        
+        dp.setConverter(new javafx.util.StringConverter<java.time.LocalDate>() {
+            @Override
+            public String toString(java.time.LocalDate fecha) {
+                return (fecha != null) ? formateador.format(fecha) : "";
+            }
+            @Override
+            public java.time.LocalDate fromString(String cadena) {
+                return (cadena != null && !cadena.isEmpty()) ? java.time.LocalDate.parse(cadena, formateador) : null;
+            }
+        });
     }
 }
