@@ -137,39 +137,49 @@ public class GestorConfiguracion {
     }
 
     /**
-     * Escribe o elimina una llave en el Registro de Windows para el Auto-Arranque.
+     * Configura el Auto-Arranque usando un Lanzador Silencioso (VBScript) en la Carpeta Startup.
+     * Utiliza jpackage.app-path para obtener la ruta absoluta y exacta del .exe dinámicamente.
      */
     public static void configurarArranqueWindows(boolean activar) {
         if (!System.getProperty("os.name").toLowerCase().contains("win")) return;
 
         try {
-            String nombreApp = "MiToDoList_V6";
-            String rutaEjecutable = System.getProperty("user.dir") + java.io.File.separator + "Mi ToDo List.exe";
+            String carpetaInicio = System.getenv("APPDATA") + "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup";
+            java.io.File archivoArranque = new java.io.File(carpetaInicio, "MiToDoList_Arranque.vbs");
 
             if (activar) {
-                // ProcessBuilder es el estándar moderno: Separa cada parte del comando limpiamente
-                ProcessBuilder pb = new ProcessBuilder(
-                    "reg", "add", 
-                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", 
-                    "/v", nombreApp, 
-                    "/t", "REG_SZ", 
-                    "/d", "\"" + rutaEjecutable + "\"", 
-                    "/f"
-                );
-                pb.start();
-                System.out.println("🚀 Arranque inyectado en el Registro mediante ProcessBuilder.");
+                // 1. RADAR DINÁMICO: Le preguntamos a la JVM la ruta exacta del .exe que la lanzó.
+                String rutaEjecutable = System.getProperty("jpackage.app-path");
+                
+                if (rutaEjecutable == null) {
+                    // Fallback de emergencia (por si lo estás probando desde el IDE)
+                    // Ajustado para coincidir con el nombre de tu acceso directo
+                    rutaEjecutable = System.getProperty("user.dir") + java.io.File.separator + "MiTodoList.exe";
+                }
+
+                // Extraemos la ruta de la carpeta padre para el "CurrentDirectory"
+                java.io.File archivoExe = new java.io.File(rutaEjecutable);
+                String rutaCarpeta = archivoExe.getParent();
+
+                // 2. Escribimos el Script Invisible
+                java.io.FileWriter writer = new java.io.FileWriter(archivoArranque);
+                writer.write("Set WshShell = CreateObject(\"WScript.Shell\")\n");
+                writer.write("WshShell.CurrentDirectory = \"" + rutaCarpeta + "\"\n");
+                // Chr(34) encierra la ruta en comillas dobles (") para proteger cualquier espacio en el nombre
+                writer.write("WshShell.Run Chr(34) & \"" + rutaEjecutable + "\" & Chr(34), 0\n");
+                writer.write("Set WshShell = Nothing\n");
+                writer.close();
+
+                System.out.println("🚀 Lanzador VBS configurado exitosamente apuntando a: " + rutaEjecutable);
             } else {
-                ProcessBuilder pb = new ProcessBuilder(
-                    "reg", "delete", 
-                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", 
-                    "/v", nombreApp, 
-                    "/f"
-                );
-                pb.start();
-                System.out.println("🛑 Arranque retirado del Registro mediante ProcessBuilder.");
+                // 3. Borramos el script si el usuario desactiva la opción
+                if (archivoArranque.exists()) {
+                    archivoArranque.delete();
+                    System.out.println("🛑 Arranque automático desactivado (Script VBS eliminado).");
+                }
             }
         } catch (Exception e) {
-            System.out.println("Error de permisos al modificar el Registro: " + e.getMessage());
+            System.out.println("Error al configurar el arranque de Windows: " + e.getMessage());
         }
     }
 }

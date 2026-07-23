@@ -38,7 +38,7 @@ public class App extends Application {
         boolean recordarSesion = GestorBaseDatos.isSesionRecordada();
 
         if (tieneUsuario && recordarSesion) {
-            cambiarEscena("VentanaPrincipal.fxml", "Mi TodoList V6.0.0e");
+            cambiarEscena("VentanaPrincipal.fxml", "Mi TodoList V6.0.2e");
         } else {
             cambiarEscena("VentanaLogin.fxml", "Acceso - Mi TodoList");
         }

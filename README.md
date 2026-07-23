@@ -2,7 +2,7 @@
 
 Una aplicación de escritorio moderna y eficiente construida con **Java y JavaFX**, diseñada para la gestión de tareas personales.
 
-Con la llegada de la versión **V6.0.0e**, la aplicación da un salto monumental hacia la seguridad y la personalización estructural. Integrando criptografía avanzada, un motor dinámico de renderizado visual y una arquitectura purificada, la aplicación se consolida como una herramienta robusta y de alto nivel.
+Con la llegada de la versión **V6.0.2e**, la aplicación da un salto monumental hacia la seguridad y la personalización estructural. Integrando criptografía avanzada, un motor dinámico de renderizado visual y una arquitectura purificada, la aplicación se consolida como una herramienta robusta y de alto nivel.
 
 ---
 
