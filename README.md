@@ -6,7 +6,7 @@ Con la llegada de la versión **V6.0.2e**, la aplicación da un salto monumental
 
 ---
 
-## 🚀 Novedades en la Versión 6.0.0e (Seguridad Criptográfica y Personalización Visual)
+## 🚀 Novedades en la Versión 6.0.2e (Seguridad Criptográfica y Personalización Visual)
 
 Esta actualización se centra en blindar la información del usuario, ofrecer una experiencia visual altamente adaptable y purificar la estructura del código siguiendo el estándar MVC:
 
