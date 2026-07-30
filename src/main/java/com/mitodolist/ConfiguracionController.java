@@ -41,6 +41,9 @@ public class ConfiguracionController {
     private double yOffset = 0;
     
     private Configuracion configActual;
+    private String colorTemporalHex = "";
+    private boolean dialogoAbierto = false;      // 🚨 Escudo anti-doble ventana
+    private boolean ignorarAccionCombo = false;  // 🚨 Escudo anti-bucles
 
     @FXML
     public void initialize() {
@@ -54,8 +57,45 @@ public class ConfiguracionController {
         // Si ya agregaste el FXML de apariencia, llenamos sus opciones también
         if(comboTema != null) {
             comboTema.getItems().addAll("Modo Oscuro (Predeterminado)", "Modo Claro");
-            comboColor.getItems().addAll("Magenta (Predeterminado)", "Azul", "Verde Esmeralda", "Naranja");
+            comboColor.getItems().addAll("Magenta (Predeterminado)", "Azul", "Verde Esmeralda", "Naranja", "🎨 Personalizado...");
             comboFecha.getItems().addAll("dd/MM/yyyy (Latam/Europa)", "MM/dd/yyyy (EE.UU.)");
+
+            // 🚨 Sensor en vivo: Tema Claro/Oscuro
+            comboTema.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null) aplicarTemaEnVivo(newVal.equals("Modo Claro"), null);
+            });
+
+            // 🚨 Sensor en vivo: Colores Predeterminados
+            comboColor.setOnAction(e -> {
+                if (ignorarAccionCombo) return;
+                String seleccionado = comboColor.getValue();
+                if (seleccionado == null) return;
+                
+                if (seleccionado.equals("Azul")) aplicarTemaEnVivo(null, "#2196F3");
+                else if (seleccionado.equals("Verde Esmeralda")) aplicarTemaEnVivo(null, "#4CAF50");
+                else if (seleccionado.equals("Naranja")) aplicarTemaEnVivo(null, "#FF9800");
+                else if (seleccionado.equals("Magenta (Predeterminado)")) aplicarTemaEnVivo(null, "#C2185B");
+                else if (seleccionado.equals("🎨 Personalizado...")) {
+                    abrirSelectorColorPersonalizado();
+                }
+            });
+
+            // 🚨 MAGIA 2: Hackeamos la celda "Personalizada" para obligarla a escuchar nuestros clics infinitos
+            comboColor.setCellFactory(lv -> {
+                javafx.scene.control.ListCell<String> celda = new javafx.scene.control.ListCell<>() {
+                    @Override
+                    protected void updateItem(String item, boolean empty) {
+                        super.updateItem(item, empty);
+                        setText(empty ? null : item);
+                    }
+                };
+                celda.setOnMousePressed(e -> {
+                    if (celda.getItem() != null && celda.getItem().equals("🎨 Personalizado...")) {
+                        javafx.application.Platform.runLater(() -> abrirSelectorColorPersonalizado());
+                    }
+                });
+                return celda;
+            });
         }
 
         barraSuperiorConfig.setOnMousePressed(event -> { xOffset = event.getSceneX(); yOffset = event.getSceneY(); });
@@ -170,17 +210,22 @@ public class ConfiguracionController {
     // ==========================================
     @FXML
     public void abrirSeccionApariencia() {
-        if(comboTema == null) {
-            System.out.println("Panel Apariencia aún no inyectado en FXML.");
-            return;
-        }
-        comboTema.setValue(configActual.isTemaClaro() ? "Modo Claro" : "Modo Oscuro (Predeterminado)");
+        if(comboTema == null) return;
         
+        comboTema.setValue(configActual.isTemaClaro() ? "Modo Claro" : "Modo Oscuro (Predeterminado)");
+
+        ignorarAccionCombo = true; // Pausamos los sensores temporalmente
         String color = configActual.getColorAcento();
-        if(color.equals("#2196F3")) comboColor.setValue("Azul");
-        else if(color.equals("#4CAF50")) comboColor.setValue("Verde Esmeralda");
-        else if(color.equals("#FF9800")) comboColor.setValue("Naranja");
-        else comboColor.setValue("Magenta (Predeterminado)");
+        
+        if(color.equalsIgnoreCase("#2196F3")) comboColor.setValue("Azul");
+        else if(color.equalsIgnoreCase("#4CAF50")) comboColor.setValue("Verde Esmeralda");
+        else if(color.equalsIgnoreCase("#FF9800")) comboColor.setValue("Naranja");
+        else if(color.equalsIgnoreCase("#C2185B")) comboColor.setValue("Magenta (Predeterminado)");
+        else {
+            colorTemporalHex = color;
+            comboColor.setValue("🎨 Personalizado...");
+        }
+        ignorarAccionCombo = false; // Reactivamos sensores
 
         comboFecha.setValue(configActual.getFormatoFecha().startsWith("dd") ? "dd/MM/yyyy (Latam/Europa)" : "MM/dd/yyyy (EE.UU.)");
 
@@ -193,16 +238,111 @@ public class ConfiguracionController {
         configActual.setTemaClaro(comboTema.getValue().equals("Modo Claro"));
         
         String colorSelec = comboColor.getValue();
+        if (colorSelec == null) colorSelec = "Magenta (Predeterminado)"; // Escudo anti-nulos
+        
         if(colorSelec.equals("Azul")) configActual.setColorAcento("#2196F3");
         else if(colorSelec.equals("Verde Esmeralda")) configActual.setColorAcento("#4CAF50");
         else if(colorSelec.equals("Naranja")) configActual.setColorAcento("#FF9800");
-        else configActual.setColorAcento("#C2185B");
+        else if(colorSelec.equals("Magenta (Predeterminado)")) configActual.setColorAcento("#C2185B");
+        else if(colorSelec.equals("🎨 Personalizado...")) {
+            if (!colorTemporalHex.isEmpty()) configActual.setColorAcento(colorTemporalHex);
+        }
         
         configActual.setFormatoFecha(comboFecha.getValue().startsWith("dd") ? "dd/MM/yyyy" : "MM/dd/yyyy");
-        
         GestorConfiguracion.guardarConfiguracion(configActual);
+        
         System.out.println("🎨 Configuración de apariencia guardada.");
         mostrarDashboard();
+    }
+
+    // =======================================================
+    // 🎨 MOTOR DE COLOR PERSONALIZADO
+    // =======================================================
+    private void abrirSelectorColorPersonalizado() {
+        if (dialogoAbierto) return; // Evita que se abran 2 ventanas al mismo tiempo
+        dialogoAbierto = true;
+
+        javafx.scene.control.Dialog<String> dialogo = new javafx.scene.control.Dialog<>();
+        dialogo.setTitle("Color Personalizado");
+        dialogo.setHeaderText("Elige tu color de acento ideal:");
+        
+        try {
+            if (comboColor != null && comboColor.getScene() != null && comboColor.getScene().getWindow() != null) {
+                dialogo.initOwner(comboColor.getScene().getWindow());
+            }
+            dialogo.initStyle(javafx.stage.StageStyle.UNDECORATED);
+            dialogo.getDialogPane().getStylesheets().add(getClass().getResource("/com/mitodolist/estilos.css").toExternalForm());
+            dialogo.setGraphic(null); 
+            dialogo.getDialogPane().getStyleClass().add("mi-dialogo");
+            dialogo.getDialogPane().setStyle("-color-acento: " + configActual.getColorAcento() + ";");
+            if (configActual.isTemaClaro()) dialogo.getDialogPane().getStyleClass().add("tema-claro");
+
+            final double[] xOff = {0};
+            final double[] yOff = {0};
+            dialogo.getDialogPane().setOnMousePressed(event -> { xOff[0] = event.getSceneX(); yOff[0] = event.getSceneY(); });
+            dialogo.getDialogPane().setOnMouseDragged(event -> {
+                Stage stage = (Stage) dialogo.getDialogPane().getScene().getWindow();
+                stage.setX(event.getScreenX() - xOff[0]);
+                stage.setY(event.getScreenY() - yOff[0]);
+            });
+        } catch (Exception e) {}
+
+        javafx.scene.control.ButtonType btnAceptar = new javafx.scene.control.ButtonType("Aceptar", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        dialogo.getDialogPane().getButtonTypes().addAll(btnAceptar, javafx.scene.control.ButtonType.CANCEL);
+
+        String colorInicial = colorTemporalHex.isEmpty() ? configActual.getColorAcento() : colorTemporalHex;
+        javafx.scene.control.ColorPicker picker = new javafx.scene.control.ColorPicker(javafx.scene.paint.Color.web(colorInicial));
+        picker.setStyle("-fx-background-color: -bg-caja; -fx-color-label-visible: false;");
+        picker.setPrefHeight(40);
+        picker.setPrefWidth(200);
+
+        // 🚨 MAGIA 1: VISTA PREVIA EN VIVO MIENTRAS MUEVES EL MOUSE
+        picker.valueProperty().addListener((obs, oldC, newC) -> {
+            if (newC != null) {
+                String hexEnVivo = String.format("#%02X%02X%02X", 
+                    (int)(newC.getRed() * 255), (int)(newC.getGreen() * 255), (int)(newC.getBlue() * 255));
+                aplicarTemaEnVivo(null, hexEnVivo);
+            }
+        });
+
+        VBox contenedor = new VBox(picker);
+        contenedor.setAlignment(javafx.geometry.Pos.CENTER);
+        contenedor.setStyle("-fx-padding: 10;");
+        dialogo.getDialogPane().setContent(contenedor);
+
+        dialogo.setResultConverter(btn -> {
+            if (btn == btnAceptar) {
+                return String.format("#%02X%02X%02X", 
+                    (int)(picker.getValue().getRed() * 255),
+                    (int)(picker.getValue().getGreen() * 255),
+                    (int)(picker.getValue().getBlue() * 255));
+            }
+            return null;
+        });
+
+        java.util.Optional<String> resultado = dialogo.showAndWait();
+        resultado.ifPresent(hex -> {
+            colorTemporalHex = hex;
+            aplicarTemaEnVivo(null, hex);
+            
+            javafx.application.Platform.runLater(() -> {
+                ignorarAccionCombo = true;
+                comboColor.setValue("🎨 Personalizado...");
+                ignorarAccionCombo = false;
+            });
+        });
+
+        // 🚨 UX PRO: Si cancelas, la interfaz regresa sola a su color anterior original
+        if (resultado.isEmpty()) {
+            aplicarTemaEnVivo(null, configActual.getColorAcento());
+            javafx.application.Platform.runLater(() -> {
+                ignorarAccionCombo = true;
+                abrirSeccionApariencia(); 
+                ignorarAccionCombo = false;
+            });
+        }
+        
+        dialogoAbierto = false; // Bajamos el escudo
     }
 
     // ==========================================
@@ -394,6 +534,42 @@ public class ConfiguracionController {
                     mostrarAlertaSeguridad("Acceso Denegado", "El PIN es incorrecto. La operación ha sido abortada para proteger la cuenta.");
                 }
             });
+        }
+    }
+
+    // =======================================================
+    // 👁️ MOTOR DE VISTA PREVIA EN VIVO (LIVE PREVIEW)
+    // =======================================================
+    private void aplicarTemaEnVivo(Boolean esClaro, String colorHex) {
+        if (vistaDashboard == null || vistaDashboard.getScene() == null) return;
+        
+        javafx.scene.Parent rootConfig = vistaDashboard.getScene().getRoot();
+        javafx.scene.Parent rootPrincipal = null;
+        
+        // Buscamos la ventana principal (Tareas) que está anclada en el fondo
+        if (vistaDashboard.getScene().getWindow() instanceof Stage) {
+            Stage stageConfig = (Stage) vistaDashboard.getScene().getWindow();
+            if (stageConfig.getOwner() != null && stageConfig.getOwner().getScene() != null) {
+                rootPrincipal = stageConfig.getOwner().getScene().getRoot();
+            }
+        }
+
+        // 1. Inyectar Color en Vivo al instante
+        if (colorHex != null) {
+            String estiloAcento = "-color-acento: " + colorHex + ";";
+            rootConfig.setStyle(estiloAcento);
+            if (rootPrincipal != null) rootPrincipal.setStyle(estiloAcento);
+        }
+
+        // 2. Inyectar Tema (Claro/Oscuro) en Vivo al instante
+        if (esClaro != null) {
+            if (esClaro) {
+                if (!rootConfig.getStyleClass().contains("tema-claro")) rootConfig.getStyleClass().add("tema-claro");
+                if (rootPrincipal != null && !rootPrincipal.getStyleClass().contains("tema-claro")) rootPrincipal.getStyleClass().add("tema-claro");
+            } else {
+                rootConfig.getStyleClass().remove("tema-claro");
+                if (rootPrincipal != null) rootPrincipal.getStyleClass().remove("tema-claro");
+            }
         }
     }
 }

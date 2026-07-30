@@ -14,7 +14,9 @@ public class Tarea {
     private transient boolean notificada;
     private Integer idTareaPadre;
     private ArrayList<Tarea> subTareas;
-    private transient boolean expandida; // 'transient' para que no afecte a JSON si alguna vez lo vuelves a usar
+    private transient boolean expandida;
+    private java.time.LocalTime horaLimite; // Permite guardar la hora exacta
+    private String tipoRepeticion; // Puede ser: "NINGUNA", "DIARIA", "SEMANAL", "MENSUAL"
 
     // --- CONSTRUCTOR ---
     public Tarea(String descripcion) {
@@ -26,6 +28,8 @@ public class Tarea {
         this.idTareaPadre = null; 
         this.subTareas = new ArrayList<>();
         this.expandida = true;
+        this.horaLimite = null; 
+        this.tipoRepeticion = "NINGUNA";
     }
 
     // --- GETTERS Y SETTERS ORIGINALES ---
@@ -106,4 +110,10 @@ public class Tarea {
     public void setExpandida(boolean expandida) {
         this.expandida = expandida;
     }
+
+    public java.time.LocalTime getHoraLimite() { return horaLimite; }
+    public void setHoraLimite(java.time.LocalTime horaLimite) { this.horaLimite = horaLimite; }
+
+    public String getTipoRepeticion() { return tipoRepeticion; }
+    public void setTipoRepeticion(String tipoRepeticion) { this.tipoRepeticion = tipoRepeticion; }
 }

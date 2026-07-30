@@ -300,3 +300,186 @@
     -fx-cursor: hand;
     -fx-padding: 0 5 0 0;
 }
+
+/* =========================================================
+   7. ÁREA DE TEXTO MULTILÍNEA (HISTORIALES)
+   ========================================================= */
+.caja-historial {
+    /* Fondo principal del área de texto apuntando a la variable dinámica */
+    -fx-control-inner-background: -bg-caja; 
+    -fx-background-color: -borde-color, -bg-caja;
+    -fx-text-fill: -texto-principal;
+    -fx-border-color: -borde-color;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+    -fx-padding: 5px;
+    -fx-font-size: 14px;
+}
+
+/* Evita que el contenedor interno sobrescriba nuestros colores */
+.caja-historial .content {
+    -fx-background-color: transparent;
+}
+
+/* =========================================================
+   8. GRÁFICOS Y ESTADÍSTICAS DE PRODUCTIVIDAD
+   ========================================================= */
+.chart {
+    -fx-padding: 10px;
+}
+.chart-title {
+    -fx-text-fill: -texto-principal;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+/* Forzamos el tamaño de letra en la torta con !important */
+.chart-pie-label {
+    -fx-fill: -texto-principal !important;
+    -fx-font-size: 16px !important; 
+    -fx-font-weight: bold !important;
+}
+
+/* Forzamos el color en el contenedor general del eje */
+.axis {
+    -fx-tick-label-fill: -texto-principal !important;
+}
+
+/* 🚨 NUEVO: Apuntamos directamente al texto de los ejes para obligarlo a crecer */
+.axis-tick-mark-text {
+    -fx-font-size: 14px !important;
+    -fx-fill: -texto-principal !important;
+}
+
+/* Hacemos que los títulos de los gráficos también resalten más */
+.chart-title {
+    -fx-text-fill: -texto-principal !important;
+    -fx-font-size: 18px !important;
+    -fx-font-weight: bold !important;
+}
+.axis-label {
+    -fx-text-fill: -texto-principal;
+}
+.chart-plot-background {
+    -fx-background-color: transparent;
+}
+/* Las barras del gráfico heredarán el color de acento del usuario */
+.default-color0.chart-bar {
+    -fx-bar-fill: -color-acento;
+}
+
+/* Recuperar y pintar las líneas guía del gráfico */
+.chart-vertical-grid-lines,
+.chart-horizontal-grid-lines {
+    -fx-stroke: #333333;
+}
+
+/* Colores personalizados para el Gráfico Circular (Verde, Azul y Rojo) */
+/* Nota: JavaFX asigna 'data0', 'data1', etc. en el orden en que se agregan */
+.data0.chart-pie { -fx-pie-color: #4CAF50; } /* Completadas = Verde */
+.data1.chart-pie { -fx-pie-color: #2196F3; } /* Pendientes = Azul */
+.data2.chart-pie { -fx-pie-color: #F44336; } /* Atrasadas = Rojo */
+
+/* =========================================================
+   9. SCROLLPANE DE HÁBITOS (ELIMINAR FONDO BLANCO)
+   ========================================================= */
+.scroll-pane {
+    -fx-background-color: transparent !important;
+    -fx-control-inner-background: transparent !important;
+    -fx-background-insets: 0 !important;
+    -fx-padding: 0 !important;
+}
+/* 🚨 El secreto: Apuntar directamente al viewport interno */
+.scroll-pane > .viewport {
+    -fx-background-color: transparent !important;
+}
+
+/* =========================================================
+   10. DOMANDO AL COLOR PICKER (TEMA DINÁMICO ADAPTABLE)
+   ========================================================= */
+.color-picker {
+    -fx-background-color: -bg-caja;
+    -fx-border-color: -borde-color;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+}
+.color-picker .label { -fx-text-fill: -texto-principal; }
+
+/* --- 1. EL DESPLEGABLE (PALETA DE COLORES) --- */
+.color-palette,
+.color-palette-region {
+    -fx-background-color: -bg-panel !important;
+    -fx-background: -bg-panel !important; 
+    -fx-border-color: -borde-color !important;
+}
+.color-palette-region .color-picker-grid {
+    -fx-background-color: -bg-panel !important;
+}
+
+/* Texto "Personalizar color..." */
+.color-palette-region .custom-color-link {
+    -fx-text-fill: -texto-principal !important; 
+    -fx-background-color: transparent !important;
+    -fx-padding: 5px !important;
+    -fx-underline: false !important;
+}
+.color-palette-region .custom-color-link:hover {
+    -fx-text-fill: -color-acento !important; 
+    -fx-background-color: -bg-barra !important;
+}
+
+/* --- 2. LA VENTANA DE "COLORES PERSONALIZADOS" --- */
+/* Sobreescribimos las raíces de Modena usando las variables dinámicas */
+.custom-color-dialog {
+    -fx-base: -bg-panel !important;
+    -fx-background: -bg-panel !important;
+    -fx-control-inner-background: -bg-panel !important;
+    -fx-background-color: -bg-panel !important;
+}
+
+.custom-color-dialog .label {
+    -fx-text-fill: -texto-principal !important;
+}
+
+/* La cabecera superior (Barra de título) */
+.custom-color-dialog .header-panel {
+    -fx-background-color: -bg-barra !important;
+}
+.custom-color-dialog .header-panel .label {
+    -fx-text-fill: -texto-principal !important;
+    -fx-font-weight: bold !important;
+}
+
+/* Fondo detrás de los Sliders y pestañas */
+.custom-color-dialog .tab-pane,
+.custom-color-dialog .tab-pane .tab-content-area,
+.custom-color-dialog .tab-pane .tab-header-background {
+    -fx-background-color: -bg-panel !important;
+    -fx-background: -bg-panel !important;
+}
+
+/* Pestañas superiores (HSB, RGB, Web) */
+.custom-color-dialog .tab-pane .tab {
+    -fx-background-color: -bg-caja !important;
+}
+.custom-color-dialog .tab-pane .tab:selected {
+    -fx-background-color: -bg-barra !important;
+}
+.custom-color-dialog .tab-pane .tab .tab-label {
+    -fx-text-fill: -texto-principal !important;
+}
+
+/* Botones de acción y Cajas de texto */
+.custom-color-dialog .text-field {
+    -fx-background-color: -bg-fondo !important;
+    -fx-text-fill: -texto-principal !important;
+    -fx-border-color: -borde-color !important;
+}
+.custom-color-dialog .button {
+    -fx-background-color: -bg-caja !important;
+    -fx-text-fill: -texto-principal !important;
+    -fx-border-color: -borde-color !important;
+}
+.custom-color-dialog .button:hover {
+    -fx-background-color: -color-acento !important; 
+    -fx-text-fill: white !important;
+}

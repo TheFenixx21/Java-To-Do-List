@@ -2,29 +2,32 @@
 
 Una aplicación de escritorio moderna y eficiente construida con **Java y JavaFX**, diseñada para la gestión de tareas personales.
 
-Con la llegada de la versión **V6.0.2e**, la aplicación da un salto monumental hacia la seguridad y la personalización estructural. Integrando criptografía avanzada, un motor dinámico de renderizado visual y una arquitectura purificada, la aplicación se consolida como una herramienta robusta y de alto nivel.
+Con la llegada de la monumental versión **V7.0.0e**, la aplicación evoluciona de un simple gestor de tareas a una suite integral de productividad. Introduciendo un sofisticado sistema de seguimiento de hábitos, gestión avanzada del tiempo con rutinas, analítica de estados de ánimo y un motor visual en tiempo real, estableciendo un nuevo estándar en la experiencia del usuario.
 
 ---
 
-## 🚀 Novedades en la Versión 6.0.2e (Seguridad Criptográfica y Personalización Visual)
+## 🚀 Novedades en la Versión 7.0.0e (Hábitos, Gestión de Tiempo y UI Inteligente)
 
-Esta actualización se centra en blindar la información del usuario, ofrecer una experiencia visual altamente adaptable y purificar la estructura del código siguiendo el estándar MVC:
+Esta gran actualización expande radicalmente las capacidades de la aplicación, brindando herramientas avanzadas de desarrollo personal y una interfaz altamente dinámica:
 
-* **Criptografía y Seguridad de Datos:**
-  * **AES-128 para Tareas:** Implementación de encriptación simétrica bidireccional para todas las descripciones en la base de datos SQLite, protegiendo la información local.
-  * **Hashing SHA-256:** Los PINs de acceso ahora son procesados mediante algoritmos irreversibles, garantizando que las credenciales jamás se expongan en texto plano.
-  * **Protocolo de Destrucción:** Nuevo sistema de eliminación de cuenta con doble barrera de autenticación que realiza un borrado en cascada (tareas, listas y usuario) sin dejar rastros de datos.
-* **Privacidad Visual y Auto-Protección (UX):**
-  * **Arranque Automático:** Opción integrada para iniciar la aplicación silenciosamente junto con Windows, asegurando que tus tareas estén siempre disponibles al encender el equipo.
-  * **Modo Enmascarado:** Función de privacidad que oculta el contenido de las tareas en pantalla mediante asteriscos, revelando la información únicamente al interactuar con el cursor.
-  * **Auto-Bloqueo Inteligente:** Escáner asíncrono que detecta la inactividad del usuario (ratón/teclado) y bloquea automáticamente la sesión tras un tiempo configurable.
-* **Motor de Temas Dinámico (UI Premium):**
-  * Inyección de variables CSS en tiempo real que permite alternar entre el clásico Tema Oscuro y un nuevo **Tema Claro** (con paletas de grises suaves para descanso visual) de forma instantánea y sin reiniciar la aplicación.
-  * Personalización total del "Color de Acento" de la interfaz, permitiendo al usuario elegir el alma visual de su entorno (Magenta, Azul, Verde Esmeralda, Naranja).
-* **Arquitectura Purificada y Backups:**
-  * **Refactorización MVC:** Separación estricta de responsabilidades (FXML para estructura visual, CSS global para diseño y Java exclusivo para lógica).
-  * **Migraciones Silenciosas:** Scripts de actualización en segundo plano que detectan bases de datos de versiones anteriores y encriptan su contenido automáticamente sin fricción para el usuario.
-  * **Sistema de Respaldos:** Creación de backups diarios automatizados con política de retención de espacio y auto-restauración en caso de corrupción.
+* **Sistema Integral de Hábitos y Mood Tracker:**
+  * **Creación y Gestión de Hábitos:** Nuevo módulo independiente con sistema CRUD para registrar rutinas a largo plazo, totalmente separado de las tareas diarias mediante aislamiento en la base de datos.
+  * **Matriz Visual Interactiva:** Cuadrícula mensual para llevar un control visual y rápido de la constancia (rachas) en cada hábito.
+  * **Mood Tracker:** Selector de "Estado de Ánimo" diario con emojis y colores personalizados, permitiendo un cruce de datos entre las emociones y el éxito de las rutinas.
+* **Gestión Avanzada de Tiempo y Repetición:**
+  * **Control de Horas Exactas:** Capacidad para establecer una hora específica (formato 12h AM/PM) de vencimiento para cada tarea.
+  * **Rutinas e Intervalos (CRUD):** Las tareas ahora pueden configurarse para repetirse de forma diaria, semanal, mensual o mediante intervalos de días completamente personalizados.
+  * **Historial de Tareas:** Implementación de un historial detallado accesible para aquellas tareas recurrentes, permitiendo ver cuándo se han completado a lo largo del tiempo.
+* **Analítica y Estadísticas de Productividad:**
+  * **Panel de Gráficos:** Nuevo módulo estadístico que genera gráficos circulares y de barras en base al rendimiento actual.
+  * **Análisis de Impacto Emocional:** Gráficas inteligentes que evalúan y muestran cómo afecta cada estado de ánimo al porcentaje de disciplina del usuario en sus hábitos.
+* **Experiencia de Usuario (UX) y Mejoras de Interfaz:**
+  * **Live Preview & Color Picker:** Inclusión de un selector de color libre para el acento visual de la aplicación. Los cambios de temas (Oscuro/Claro) y colores ahora se aplican en tiempo real en toda la interfaz sin necesidad de guardar ni reiniciar.
+  * **Redimensionamiento Automático:** La ventana principal ahora detecta inteligentemente la resolución del monitor del usuario y ajusta su tamaño inicial al 85% de la pantalla para una visibilidad óptima.
+  * **Indicadores Dinámicos de Menú:** Las categorías ahora se sombrean visualmente en el menú lateral para indicarle al usuario exactamente en qué lista se encuentra.
+  * **Minimización a la Bandeja (System Tray):** Soporte para mantener la aplicación corriendo en segundo plano sin estorbar en la barra de tareas.
+  * **Atajos de Teclado Globales:** Nuevas combinaciones de teclas para agilizar la interacción y mejorar el flujo de trabajo.
+  * **Correcciones Críticas (Bug Fixes):** Solución de problemas en la asignación de repeticiones en tareas sin fechas, corrección de solapamiento de ventanas (robo de foco) y mejoras estructurales.
 
 ## 📥 Instalación (Para Usuarios)
 

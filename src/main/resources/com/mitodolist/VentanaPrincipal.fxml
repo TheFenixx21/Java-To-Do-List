@@ -7,10 +7,12 @@
 <?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="800.0" prefWidth="1520.0" styleClass="fondo-principal" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mitodolist.VentanaController">
@@ -18,8 +20,17 @@
       <VBox prefHeight="680.0" prefWidth="180.0" styleClass="fondo-panel" BorderPane.alignment="CENTER">
          <BorderPane.margin><Insets bottom="20.0" left="20.0" right="20.0" top="15.0" /></BorderPane.margin>
          <children>
-            <ComboBox fx:id="comboFiltros" promptText="Filtro de Tareas" styleClass="combo-capsula">
+            <!-- 🚨 NUEVO: INTERRUPTOR DE VISTAS (TAREAS / HÁBITOS) -->
+            <HBox alignment="CENTER" spacing="5.0">
                <VBox.margin><Insets left="10.0" right="10.0" top="10.0" /></VBox.margin>
+               <children>
+                  <Button fx:id="btnVistaTareas" mnemonicParsing="false" onAction="#accionVistaTareas" prefHeight="35.0" prefWidth="85.0" style="-fx-font-size: 13px;" styleClass="boton-acento" text="📋 Tareas" />
+                  <Button fx:id="btnVistaHabitos" mnemonicParsing="false" onAction="#accionVistaHabitos" prefHeight="35.0" prefWidth="85.0" style="-fx-font-size: 13px;" styleClass="boton-secundario" text="🌱 Hábitos" />
+               </children>
+            </HBox>
+
+            <ComboBox fx:id="comboFiltros" promptText="Filtro de Tareas" styleClass="combo-capsula">
+               <VBox.margin><Insets left="10.0" right="10.0" top="15.0" /></VBox.margin>
             </ComboBox>
             <Label style="-fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 20 0 5 0;" styleClass="texto-secundario" text="Mis listas">
                <VBox.margin><Insets left="10.0" top="10.0" /></VBox.margin>
@@ -51,32 +62,86 @@
             </Label>
             <Label fx:id="lblPendientes" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Pendientes: 0"><VBox.margin><Insets left="10.0" /></VBox.margin></Label>
             <Label fx:id="lblCompletadas" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Completadas: 0"><VBox.margin><Insets left="10.0" /></VBox.margin></Label>
-            <Label fx:id="lblAtrasadas" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Atrasadas: 0"><VBox.margin><Insets left="10.0" /></VBox.margin></Label>
+            <Label fx:id="lblAtrasadas" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Atrasadas: 0">
+                <VBox.margin><Insets left="10.0" /></VBox.margin>
+            </Label>
+            <VBox VBox.vgrow="ALWAYS">
+               <children>
+                  <Region VBox.vgrow="ALWAYS" />
+                  <HBox alignment="CENTER" prefHeight="43.0" prefWidth="180.0">
+                     <children>
+                        <Button mnemonicParsing="false" onAction="#abrirEstadisticas" prefHeight="38.0" prefWidth="140.0" styleClass="boton-acento" text="📈 Ver Gráficos" />
+                     </children>
+                     <VBox.margin>
+                        <Insets bottom="30.0" />
+                     </VBox.margin>
+                  </HBox>
+               </children>
+            </VBox>
          </children>
       </VBox>
    </right>
    <center>
-      <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
+      <!-- 🚨 NUEVO: STACKPANE PARA APILAR LAS VISTAS -->
+      <StackPane BorderPane.alignment="CENTER">
          <BorderPane.margin><Insets bottom="20.0" left="20.0" right="20.0" top="20.0" /></BorderPane.margin>
          <children>
-            <HBox alignment="CENTER_LEFT" prefHeight="40.0" prefWidth="770.0" spacing="10.0">
+            
+            <!-- ========================================== -->
+            <!-- VISTA 1: TAREAS (LA INTERFAZ ORIGINAL)     -->
+            <!-- ========================================== -->
+            <VBox fx:id="panelTareas" prefHeight="200.0" prefWidth="100.0">
                <children>
-                  <TextField fx:id="txtBuscador" prefHeight="35.0" promptText="🔍 Buscar tarea..." styleClass="caja-busqueda" HBox.hgrow="ALWAYS" />
-                  <DatePicker fx:id="calendarioFiltro" prefHeight="35.0" prefWidth="170.0" promptText="📅 Filtrar fecha..." />
-                  <Button fx:id="btnLimpiarFiltros" mnemonicParsing="false" onAction="#accionLimpiarFiltros" prefHeight="35.0" styleClass="boton-transparente" text="✖" />
+                  <HBox alignment="CENTER_LEFT" prefHeight="40.0" prefWidth="770.0" spacing="10.0">
+                     <children>
+                        <TextField fx:id="txtBuscador" prefHeight="35.0" promptText="🔍 Buscar tarea..." styleClass="caja-busqueda" HBox.hgrow="ALWAYS" />
+                        <DatePicker fx:id="calendarioFiltro" prefHeight="35.0" prefWidth="170.0" promptText="📅 Filtrar fecha..." />
+                        <Button fx:id="btnLimpiarFiltros" mnemonicParsing="false" onAction="#accionLimpiarFiltros" prefHeight="35.0" styleClass="boton-transparente" text="✖" />
+                     </children>
+                     <VBox.margin><Insets bottom="15.0" left="15.0" right="15.0" /></VBox.margin>
+                     <padding><Insets top="5.0" /></padding>
+                  </HBox>
+                  <ListView fx:id="listaTareas" prefHeight="200.0" prefWidth="200.0" style="-fx-font-size: 18px;" styleClass="fondo-principal" VBox.vgrow="ALWAYS" />
+                  <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
+                     <children>
+                        <TextField fx:id="txtNuevaTarea" prefHeight="45.0" promptText="¡Hola! ¿Qué tarea tenemos hoy?" style="-fx-font-size: 15px;" styleClass="caja-texto" HBox.hgrow="ALWAYS" />
+                        <DatePicker fx:id="calendarioPrincipal" promptText="📅 Fecha" />
+                        <Button fx:id="btnAgregar1" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="40.0" prefWidth="40.0" style="-fx-font-size: 18px;" styleClass="boton-acento" text="+" />
+                     </children>
+                  </HBox>
                </children>
-               <VBox.margin><Insets bottom="15.0" left="15.0" right="15.0" /></VBox.margin>
-               <padding><Insets top="5.0" /></padding>
-            </HBox>
-            <ListView fx:id="listaTareas" prefHeight="200.0" prefWidth="200.0" style="-fx-font-size: 18px;" styleClass="fondo-principal" VBox.vgrow="ALWAYS" />
-            <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="20.0">
+            </VBox>
+
+            <!-- ========================================== -->
+            <!-- VISTA 2: HÁBITOS (EL NUEVO LIENZO)         -->
+            <!-- ========================================== -->
+            <VBox fx:id="panelHabitos" prefHeight="200.0" prefWidth="100.0" visible="false">
                <children>
-                  <TextField fx:id="txtNuevaTarea" prefHeight="45.0" promptText="¡Hola! ¿Qué tarea tenemos hoy?" style="-fx-font-size: 15px;" styleClass="caja-texto" HBox.hgrow="ALWAYS" />
-                  <DatePicker fx:id="calendarioPrincipal" promptText="📅 Fecha" />
-                  <Button fx:id="btnAgregar1" mnemonicParsing="false" onAction="#agregarNuevaTarea" prefHeight="40.0" prefWidth="40.0" style="-fx-font-size: 18px;" styleClass="boton-acento" text="+" />
+                  <!-- Cabecera de Hábitos -->
+                  <HBox alignment="CENTER_LEFT" prefHeight="40.0" prefWidth="770.0" spacing="15.0">
+                     <children>
+                        <Label style="-fx-font-size: 18px; -fx-font-weight: bold;" styleClass="texto-principal" text="Mes actual:" />
+                        <Button mnemonicParsing="false" onAction="#mesAnteriorHabitos" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 0 8 0 8;" styleClass="boton-transparente" text="&lt;" />
+                        <Label fx:id="lblMesHabitos" alignment="CENTER" prefWidth="170.0" minWidth="170.0" style="-fx-font-size: 18px; -fx-text-fill: -color-acento; -fx-font-weight: bold;" text="Julio 2026" />
+                        <Button mnemonicParsing="false" onAction="#mesSiguienteHabitos" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 0 8 0 8;" styleClass="boton-transparente" text="&gt;" />
+                        
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Button mnemonicParsing="false" onAction="#crearNuevoHabito" prefHeight="35.0" styleClass="boton-acento" text="+ Nuevo Hábito" />
+                     </children>
+                     <VBox.margin><Insets bottom="15.0" left="15.0" right="15.0" /></VBox.margin>
+                  </HBox>
+                  
+                  <!-- Matriz Scrollable (Aquí inyectaremos la cuadrícula en la Fase 3) -->
+                  <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-control-inner-background: transparent;" VBox.vgrow="ALWAYS">
+                     <content>
+                        <VBox fx:id="contenedorMatrizHabitos" alignment="TOP_CENTER" spacing="10.0" />
+                     </content>
+                     <VBox.margin><Insets left="15.0" right="15.0" /></VBox.margin>
+                  </ScrollPane>
                </children>
-            </HBox>
+            </VBox>
+
          </children>
-      </VBox>
+      </StackPane>
    </center>
 </BorderPane>

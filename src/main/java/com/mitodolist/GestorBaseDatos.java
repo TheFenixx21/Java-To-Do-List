@@ -44,53 +44,39 @@ public class GestorBaseDatos {
      * y siembra las categorías por defecto si la tabla está vacía.
      */
     public static void inicializarEstructura() {
-        String sqlUsuarios = """
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT NOT NULL,
-                pin TEXT NOT NULL,
-                recordar_sesion INTEGER DEFAULT 0
-            );
-        """;
+        String sqlUsuarios = "CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL, pin TEXT NOT NULL, recordar_sesion INTEGER DEFAULT 0);";
+        String sqlCategorias = "CREATE TABLE IF NOT EXISTS categorias (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL, color TEXT DEFAULT '#FFFFFF', id_usuario INTEGER, tipo TEXT DEFAULT 'AMBOS', FOREIGN KEY (id_usuario) REFERENCES usuarios(id));";
+        String sqlTareas = "CREATE TABLE IF NOT EXISTS tareas (id INTEGER PRIMARY KEY AUTOINCREMENT, descripcion TEXT NOT NULL, completada INTEGER DEFAULT 0, fecha_vencimiento TEXT, id_categoria INTEGER, id_usuario INTEGER, id_tarea_padre INTEGER, expandida INTEGER DEFAULT 1, FOREIGN KEY (id_categoria) REFERENCES categorias(id), FOREIGN KEY (id_usuario) REFERENCES usuarios(id), FOREIGN KEY (id_tarea_padre) REFERENCES tareas(id) ON DELETE CASCADE);";
+        
+        String sqlHabitos = "CREATE TABLE IF NOT EXISTS Habitos (id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, id_categoria INTEGER, nombre TEXT NOT NULL, color TEXT NOT NULL, fecha_creacion TEXT NOT NULL, FOREIGN KEY(id_usuario) REFERENCES Usuarios(id), FOREIGN KEY(id_categoria) REFERENCES Categorias(id) ON DELETE CASCADE);";           
+        String sqlRegistrosHabitos = "CREATE TABLE IF NOT EXISTS Habitos_Registro (id_habito INTEGER, fecha TEXT NOT NULL, PRIMARY KEY (id_habito, fecha), FOREIGN KEY(id_habito) REFERENCES Habitos(id) ON DELETE CASCADE);";
 
-        String sqlCategorias = """
-            CREATE TABLE IF NOT EXISTS categorias (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT NOT NULL,
-                color TEXT DEFAULT '#FFFFFF',
-                id_usuario INTEGER,
-                FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
-            );
-        """;
-
-        // --- ESTRUCTURA FINAL V4: SOPORTE PARA SUB-TAREAS ---
-        String sqlTareas = """
-            CREATE TABLE IF NOT EXISTS tareas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                descripcion TEXT NOT NULL,
-                completada INTEGER DEFAULT 0,
-                fecha_vencimiento TEXT,
-                id_categoria INTEGER,
-                id_usuario INTEGER,
-                id_tarea_padre INTEGER, 
-                expandida INTEGER DEFAULT 1, -- NUEVO: Memoria de estado visual
-                FOREIGN KEY (id_categoria) REFERENCES categorias(id),
-                FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
-                FOREIGN KEY (id_tarea_padre) REFERENCES tareas(id) ON DELETE CASCADE
-            );
-        """;
-
-        try (Connection conn = conectar(); 
-             Statement stmt = conn.createStatement()) {
+        // ==========================================
+        // NUEVO SISTEMA MOOD TRACKER (LEYENDA Y COLORES)
+        // ==========================================
+        String sqlEstados = "CREATE TABLE IF NOT EXISTS estados_animo (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL, colorHex TEXT NOT NULL);";
+        String sqlAnimoDiario = "CREATE TABLE IF NOT EXISTS animo_diario_v2 (fecha TEXT PRIMARY KEY, id_estado INTEGER, FOREIGN KEY(id_estado) REFERENCES estados_animo(id) ON DELETE CASCADE);";                       
             
-            // Para habilitar el ON DELETE CASCADE en SQLite y que las subtareas 
-            // se borren solas si borramos la tarea principal:
+        try (Connection conn = conectar(); Statement stmt = conn.createStatement()) {
             stmt.execute("PRAGMA foreign_keys = ON;"); 
             
             stmt.execute(sqlUsuarios); 
             stmt.execute(sqlCategorias);
             stmt.execute(sqlTareas);
+            stmt.execute(sqlHabitos);
+            stmt.execute(sqlRegistrosHabitos);
+            stmt.execute(sqlEstados);
+            stmt.execute(sqlAnimoDiario);
             
+            // Si la tabla de estados está vacía, inyectamos 3 emociones por defecto
+            String sqlCheckEstados = "SELECT COUNT(*) AS total FROM estados_animo";
+            try (ResultSet rsEstados = stmt.executeQuery(sqlCheckEstados)) {
+                if (rsEstados.next() && rsEstados.getInt("total") == 0) {
+                    stmt.execute("INSERT INTO estados_animo (nombre, colorHex) VALUES ('Feliz', '#4CAF50')"); // Verde
+                    stmt.execute("INSERT INTO estados_animo (nombre, colorHex) VALUES ('Neutral', '#9E9E9E')"); // Gris
+                    stmt.execute("INSERT INTO estados_animo (nombre, colorHex) VALUES ('Triste', '#2196F3')"); // Azul
+                }
+            }
         } catch (SQLException e) {
             System.out.println("Error al inicializar la BD: " + e.getMessage());
         }
@@ -142,17 +128,23 @@ public class GestorBaseDatos {
             
             // --- LISTA DE REQUISITOS DEL SISTEMA ---
             // Si la columna ya existe, el motor la ignora. Si falta, la inyecta al instante.
+            // Requisitos Futuros (V6, V7... solo añade una línea aquí abajo)
+            // inyectarColumnaSiFalta(conn, "tareas", "nueva_funcion", "TEXT");
             
             // Requisitos de la V4 (Seguridad)
             inyectarColumnaSiFalta(conn, "categorias", "id_usuario", "INTEGER");
             inyectarColumnaSiFalta(conn, "tareas", "id_usuario", "INTEGER");
             inyectarColumnaSiFalta(conn, "tareas", "id_tarea_padre", "INTEGER");
+            inyectarColumnaSiFalta(conn, "categorias", "tipo", "TEXT DEFAULT 'AMBOS'");
             
             // Requisitos de la V5 (Memoria UX)
             inyectarColumnaSiFalta(conn, "tareas", "expandida", "INTEGER DEFAULT 1");
-            
-            // Requisitos Futuros (V6, V7... solo añade una línea aquí abajo)
-            // inyectarColumnaSiFalta(conn, "tareas", "nueva_funcion", "TEXT");
+
+            // 🚨 Requisitos de la V7.0.0e (Control de Tiempo y Repetición)
+            inyectarColumnaSiFalta(conn, "tareas", "hora_vencimiento", "TEXT");
+            inyectarColumnaSiFalta(conn, "tareas", "tipo_repeticion", "TEXT DEFAULT 'NINGUNA'");
+            // 🚨 Requisitos de la Fase de Hábitos
+            inyectarColumnaSiFalta(conn, "Habitos", "fecha_creacion", "TEXT DEFAULT '" + java.time.LocalDate.now().toString() + "'");
 
             migrarPinesAHash();
             migrarTareasAEncriptacion();
@@ -169,14 +161,14 @@ public class GestorBaseDatos {
         }
     }
 
-    // 1. CARGAR TAREAS Y SUB-TAREAS (Reconstrucción del Árbol)
+   // 1. CARGAR TAREAS Y SUB-TAREAS (Reconstrucción del Árbol)
     public static ArrayList<Tarea> cargarTareasDesdeBD() {
         ArrayList<Tarea> listaPrincipal = new ArrayList<>();
         java.util.HashMap<Integer, Tarea> mapaTareas = new java.util.HashMap<>();
         ArrayList<Tarea> subtareasPendientes = new ArrayList<>();
 
-        // CORRECCIÓN: Ahora sí pedimos t.expandida a la base de datos
-        String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, t.id_tarea_padre, t.expandida, c.nombre AS nombre_categoria " +
+        // 🚨 FIX: Faltaba pedirle a SQLite las columnas 'hora_vencimiento' y 'tipo_repeticion'
+        String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, t.hora_vencimiento, t.tipo_repeticion, t.id_tarea_padre, t.expandida, c.nombre AS nombre_categoria " +
                      "FROM tareas t " +
                      "INNER JOIN categorias c ON t.id_categoria = c.id " +
                      "WHERE t.id_usuario = ?";
@@ -191,8 +183,12 @@ public class GestorBaseDatos {
                     Tarea t = new Tarea(desencriptarTexto(rs.getString("descripcion")));
                     t.setId(rs.getInt("id"));
                     t.setCompletada(rs.getInt("completada") == 1);
-                    t.setExpandida(rs.getInt("expandida") == 1); // Ahora esto funciona sin romper el código
+                    t.setExpandida(rs.getInt("expandida") == 1); 
+                    
                     if (rs.getString("fecha_vencimiento") != null) t.setFechaLimite(java.time.LocalDate.parse(rs.getString("fecha_vencimiento")));
+                    if (rs.getString("hora_vencimiento") != null) t.setHoraLimite(java.time.LocalTime.parse(rs.getString("hora_vencimiento")));
+                    
+                    t.setTipoRepeticion(rs.getString("tipo_repeticion") != null ? rs.getString("tipo_repeticion") : "NINGUNA");
                     t.setCategoria(rs.getString("nombre_categoria"));
 
                     // --- LÓGICA DE JERARQUÍA ---
@@ -222,28 +218,33 @@ public class GestorBaseDatos {
         
         return listaPrincipal; 
     }
-
-    // 2. INSERTAR TAREA (Soporta Padres e Hijas)
+    
+    // 2. INSERTAR TAREA (Soporta Padres e Hijas y Variables V7)
     public static void insertarTarea(Tarea t, int idCategoria) {
-        // Añadimos id_tarea_padre al final
-        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, id_categoria, id_usuario, id_tarea_padre, expandida) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        // CORRECCIÓN: Se eliminó el duplicado y ahora son exactamente 9 columnas y 9 interrogantes
+        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, hora_vencimiento, tipo_repeticion, id_categoria, id_usuario, id_tarea_padre, expandida) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
             pstmt.setString(1, encriptarTexto(t.getDescripcion()));
             pstmt.setInt(2, t.isCompletada() ? 1 : 0);
             pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
-            pstmt.setInt(4, idCategoria);
-            pstmt.setInt(5, idUsuarioActual);
+            pstmt.setString(4, t.getHoraLimite() != null ? t.getHoraLimite().toString() : null);
+            pstmt.setString(5, t.getTipoRepeticion());
+            pstmt.setInt(6, idCategoria);
+            pstmt.setInt(7, idUsuarioActual);
             
             // --- NUEVO: ¿Tiene padre? ---
             if (t.getIdTareaPadre() != null) {
-                pstmt.setInt(6, t.getIdTareaPadre());
+                pstmt.setInt(8, t.getIdTareaPadre());
             } else {
-                pstmt.setNull(6, java.sql.Types.INTEGER);
+                pstmt.setNull(8, java.sql.Types.INTEGER);
             }
-            pstmt.setInt(7, t.isExpandida() ? 1 : 0);
+            pstmt.setInt(9, t.isExpandida() ? 1 : 0);
+            
             pstmt.executeUpdate();
+            
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
                 if (rs.next()) t.setId(rs.getInt(1)); 
             }
@@ -252,9 +253,9 @@ public class GestorBaseDatos {
         }
     }
 
-    // 3. ACTUALIZAR TAREA (Incluye reasignación de padres)
+    // 3. ACTUALIZAR TAREA (Incluye reasignación de padres y variables V7)
     public static void actualizarTarea(Tarea t) {
-        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, id_categoria = ?, id_tarea_padre = ?, expandida = ? WHERE id = ?";
+        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, hora_vencimiento = ?, tipo_repeticion = ?, id_categoria = ?, id_tarea_padre = ?, expandida = ? WHERE id = ?";
         
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -262,99 +263,115 @@ public class GestorBaseDatos {
             pstmt.setString(1, encriptarTexto(t.getDescripcion()));
             pstmt.setInt(2, t.isCompletada() ? 1 : 0);
             pstmt.setString(3, t.getFechaLimite() != null ? t.getFechaLimite().toString() : null);
-            pstmt.setInt(4, obtenerIdCategoria(t.getCategoria())); 
+            pstmt.setString(4, t.getHoraLimite() != null ? t.getHoraLimite().toString() : null);
+            pstmt.setString(5, t.getTipoRepeticion());
+            pstmt.setInt(6, obtenerIdCategoria(t.getCategoria())); 
             
-            if (t.getIdTareaPadre() != null) pstmt.setInt(5, t.getIdTareaPadre());
-            else pstmt.setNull(5, java.sql.Types.INTEGER);
+            if (t.getIdTareaPadre() != null) {
+                pstmt.setInt(7, t.getIdTareaPadre());
+            } else {
+                pstmt.setNull(7, java.sql.Types.INTEGER);
+            }
             
-            pstmt.setInt(6, t.isExpandida() ? 1 : 0); 
-            pstmt.setInt(7, t.getId()); 
+            pstmt.setInt(8, t.isExpandida() ? 1 : 0); 
+            pstmt.setInt(9, t.getId()); 
             
-            pstmt.executeUpdate(); // Ejecutamos una sola vez, de forma limpia
+            pstmt.executeUpdate(); 
             
         } catch (SQLException e) {
             System.out.println("Error al actualizar tarea: " + e.getMessage());
         }
     }
 
-    public static void eliminarTareaBD(int idTarea) {
-        String sql = "DELETE FROM tareas WHERE id = ?";
+    // V7.0.1e: Destrucción total (Tarea + Historial fantasma)
+    public static void eliminarTareaBD(int idTarea, String descripcionTarea) {
+        String sqlPrincipal = "DELETE FROM tareas WHERE id = ?";
+        // Buscamos los fantasmas que tengan la misma descripción y pertenezcan a este usuario
+        String sqlFantasmas = "DELETE FROM tareas WHERE descripcion = ? AND tipo_repeticion = 'HISTORIAL' AND id_usuario = ?";
         
-        try (Connection conn = conectar(); 
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setInt(1, idTarea);
-            pstmt.executeUpdate();
-            
+        try (Connection conn = conectar()) {
+            // 1. Matamos la tarea real
+            try (PreparedStatement pstmt1 = conn.prepareStatement(sqlPrincipal)) {
+                pstmt1.setInt(1, idTarea);
+                pstmt1.executeUpdate();
+            }
+            // 2. Matamos su historial (Si existe)
+            if (descripcionTarea != null) {
+                try (PreparedStatement pstmt2 = conn.prepareStatement(sqlFantasmas)) {
+                    pstmt2.setString(1, encriptarTexto(descripcionTarea));
+                    pstmt2.setInt(2, idUsuarioActual);
+                    pstmt2.executeUpdate();
+                }
+            }
         } catch (SQLException e) {
-            System.out.println("Error al eliminar tarea: " + e.getMessage());
+            System.out.println("Error al eliminar tarea e historial: " + e.getMessage());
         }
     }
 
-    // 2. OBTENER CATEGORÍAS (Solo las del usuario logueado)
+    // 2. OBTENER CATEGORÍAS (Sobrecarga para compatibilidad)
     public static ArrayList<Categoria> obtenerCategorias() {
+        return obtenerCategorias("TAREAS"); 
+    }
+
+    public static ArrayList<Categoria> obtenerCategorias(String tipoVista) {
         ArrayList<Categoria> listaCategorias = new ArrayList<>();
-        String sql = "SELECT id, nombre, color FROM categorias WHERE id_usuario = ?";
+        String sql = "SELECT id, nombre, color FROM categorias WHERE id_usuario = ? AND (tipo = ? OR tipo = 'AMBOS')";
 
-        try (Connection conn = conectar();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idUsuarioActual);
+            pstmt.setString(2, tipoVista);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     listaCategorias.add(new Categoria(rs.getInt("id"), rs.getString("nombre"), rs.getString("color")));
                 }
             }
-        } catch (SQLException e) {
-            System.out.println("Error al extraer categorías: " + e.getMessage());
-        }
+        } catch (SQLException e) { System.out.println("Error al extraer categorías: " + e.getMessage()); }
         return listaCategorias;
     }
 
-    // 5. INSERTAR CATEGORÍA (Marcada con el dueño)
+    // 5. INSERTAR CATEGORÍA (Marcada con el dueño y el tipo de vista)
     public static void insertarCategoria(String nombre, String color) {
-        String sql = "INSERT INTO categorias (nombre, color, id_usuario) VALUES (?, ?, ?)";
-        try (Connection conn = conectar();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, nombre);
-            pstmt.setString(2, color);
-            pstmt.setInt(3, idUsuarioActual); // Se la asignamos al dueño
-            pstmt.executeUpdate();
-
-        } catch (SQLException e) {
-            System.out.println("Error al guardar la nueva categoría: " + e.getMessage());
-        }
+        insertarCategoria(nombre, color, "TAREAS");
     }
 
-    // 3. OBTENER ID DE CATEGORÍA (Corregido: Evita mezclar listas de usuarios distintos)
+    public static void insertarCategoria(String nombre, String color, String tipoVista) {
+        String sql = "INSERT INTO categorias (nombre, color, id_usuario, tipo) VALUES (?, ?, ?, ?)";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, nombre);
+            pstmt.setString(2, color);
+            pstmt.setInt(3, idUsuarioActual);
+            pstmt.setString(4, tipoVista); // 🚨 Etiquetamos si es TAREA o HABITO
+            pstmt.executeUpdate();
+        } catch (SQLException e) { System.out.println("Error al guardar la nueva categoría: " + e.getMessage()); }
+    }
+
+    // 3. OBTENER ID DE CATEGORÍA (Aislado por vista)
     public static int obtenerIdCategoria(String nombreCategoria) {
-        String sql = "SELECT id FROM categorias WHERE nombre = ? AND id_usuario = ?";
-        try (Connection conn = conectar(); 
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+        return obtenerIdCategoria(nombreCategoria, "TAREAS");
+    }
+
+    public static int obtenerIdCategoria(String nombreCategoria, String tipoVista) {
+        String sql = "SELECT id FROM categorias WHERE nombre = ? AND id_usuario = ? AND (tipo = ? OR tipo = 'AMBOS')";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, nombreCategoria);
-            pstmt.setInt(2, idUsuarioActual); // Exige que la lista sea de ESTE usuario
+            pstmt.setInt(2, idUsuarioActual);
+            pstmt.setString(3, tipoVista);
             
             try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("id"); 
-                }
+                if (rs.next()) return rs.getInt("id"); 
             }
             
-            // Si algo falla, buscamos el ID de la lista "Sin categoría" de ESTE usuario, ya no devolvemos "1" ciegamente.
-            String sqlFallback = "SELECT id FROM categorias WHERE nombre = '📌 Sin categoría' AND id_usuario = ?";
+            // Fallback seguro
+            String sqlFallback = "SELECT id FROM categorias WHERE nombre = '📌 Sin categoría' AND id_usuario = ? AND (tipo = ? OR tipo = 'AMBOS')";
             try (PreparedStatement pstmtFallback = conn.prepareStatement(sqlFallback)) {
                 pstmtFallback.setInt(1, idUsuarioActual);
+                pstmtFallback.setString(2, tipoVista);
                 try (ResultSet rsFallback = pstmtFallback.executeQuery()) {
                     if (rsFallback.next()) return rsFallback.getInt("id");
                 }
             }
-            
-        } catch (SQLException e) {
-            System.out.println("Error al buscar categoría: " + e.getMessage());
-        }
-        return -1; // Fallo catastrófico
+        } catch (SQLException e) { System.out.println("Error al buscar categoría: " + e.getMessage()); }
+        return -1; 
     }
 
     /**
@@ -486,7 +503,7 @@ public class GestorBaseDatos {
                     } else {
                         // --- MODO NUEVO USUARIO: Le entregamos el Kit de Bienvenida en blanco ---
                         String[] defaultCats = {"📌 Sin categoría", "💼 Trabajo", "🎓 Estudios", "🗣 Idiomas", "🎮 Gaming", "🏡 Hogar / Jardín"};
-                        String sqlCat = "INSERT INTO categorias (nombre, id_usuario) VALUES (?, ?)";
+                        String sqlCat = "INSERT INTO categorias (nombre, id_usuario, tipo) VALUES (?, ?, 'AMBOS')";
                         
                         try (PreparedStatement insertCat = conn.prepareStatement(sqlCat)) {
                             for (String cat : defaultCats) {
@@ -856,6 +873,346 @@ public class GestorBaseDatos {
             System.out.println("Error crítico al ejecutar el protocolo de destrucción: " + e.getMessage());
             return false;
         }
+    }
+
+    // ==========================================
+    // 👻 MOTOR DE HISTORIALES (V7.0.0e)
+    // ==========================================
+    public static ArrayList<String> obtenerHistorialTarea(String descripcion) {
+        ArrayList<String> historial = new ArrayList<>();
+        // Buscamos todas las tareas marcadas como HISTORIAL que tengan exactamente la misma descripción
+        String sql = "SELECT fecha_vencimiento, hora_vencimiento FROM tareas WHERE descripcion = ? AND tipo_repeticion = 'HISTORIAL' AND id_usuario = ? ORDER BY id DESC";
+        
+        try (Connection conn = conectar(); 
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, encriptarTexto(descripcion));
+            pstmt.setInt(2, idUsuarioActual);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String fecha = rs.getString("fecha_vencimiento");
+                    String hora = rs.getString("hora_vencimiento");
+                    
+                    String registro = "✅ Completada: " + (fecha != null ? fecha : "Sin fecha");
+                    if (hora != null) registro += " a las " + hora;
+                    
+                    historial.add(registro);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al extraer historial: " + e.getMessage());
+        }
+        return historial;
+    }
+
+    // =========================================================================
+    // 🌱 MOTOR DE BASE DE DATOS PARA HÁBITOS (FASE 1)
+    // =========================================================================
+
+    // 1. Crear un nuevo hábito
+    public static void insertarHabito(String nombre, int idCategoria, String colorHex) {
+        if (idUsuarioActual == -1) return;
+        String sql = "INSERT INTO Habitos(id_usuario, id_categoria, nombre, color, fecha_creacion) VALUES(?,?,?,?,?)";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuarioActual);
+            pstmt.setInt(2, idCategoria);
+            pstmt.setString(3, nombre);
+            pstmt.setString(4, colorHex);
+            pstmt.setString(5, java.time.LocalDate.now().toString()); // 🚨 NUEVO
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error al insertar hábito: " + e.getMessage());
+        }
+    }
+
+    // 2. Marcar un hábito como completado en un día específico
+    public static void registrarHabito(int idHabito, java.time.LocalDate fecha) {
+        String sql = "INSERT OR IGNORE INTO Habitos_Registro(id_habito, fecha) VALUES(?,?)";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idHabito);
+            pstmt.setString(2, fecha.toString());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error al registrar hábito: " + e.getMessage());
+        }
+    }
+
+    // 3. Desmarcar un hábito de un día específico
+    public static void eliminarRegistroHabito(int idHabito, java.time.LocalDate fecha) {
+        String sql = "DELETE FROM Habitos_Registro WHERE id_habito = ? AND fecha = ?";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idHabito);
+            pstmt.setString(2, fecha.toString());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error al eliminar registro de hábito: " + e.getMessage());
+        }
+    }
+
+    // 4. Obtener todos los días completados de un hábito en un MES específico (Devuelve lista de días del 1 al 31)
+    public static java.util.ArrayList<Integer> obtenerDiasCompletadosMes(int idHabito, int anio, int mes) {
+        java.util.ArrayList<Integer> dias = new java.util.ArrayList<>();
+        // Buscamos fechas que comiencen con el Año y Mes solicitado (Ej: "2026-07-%")
+        String prefijoFecha = String.format("%04d-%02d-%%", anio, mes); 
+        
+        String sql = "SELECT fecha FROM Habitos_Registro WHERE id_habito = ? AND fecha LIKE ?";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idHabito);
+            pstmt.setString(2, prefijoFecha);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                java.time.LocalDate fecha = java.time.LocalDate.parse(rs.getString("fecha"));
+                dias.add(fecha.getDayOfMonth());
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al obtener historial del hábito: " + e.getMessage());
+        }
+        return dias;
+    }
+
+    // 5. Obtener todos los hábitos del usuario actual
+    public static java.util.ArrayList<Habito> obtenerHabitos() {
+        java.util.ArrayList<Habito> lista = new java.util.ArrayList<>();
+        String sql = "SELECT id, nombre, id_categoria, color, fecha_creacion FROM Habitos WHERE id_usuario = ?";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuarioActual);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                String fechaStr = rs.getString("fecha_creacion");
+                java.time.LocalDate fecha = (fechaStr != null) ? java.time.LocalDate.parse(fechaStr) : java.time.LocalDate.now();
+                lista.add(new Habito(
+                    rs.getInt("id"), rs.getString("nombre"), rs.getInt("id_categoria"), rs.getString("color"), fecha
+                ));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al cargar hábitos: " + e.getMessage());
+        }
+        return lista;
+    }
+
+    // 6. Eliminar Hábito y su Historial Completo
+    public static void eliminarHabito(int idHabito) {
+        String sqlRegistros = "DELETE FROM Habitos_Registro WHERE id_habito = ?";
+        String sqlHabito = "DELETE FROM Habitos WHERE id = ?";
+        try (Connection conn = conectar()) {
+            // Borramos el historial primero por seguridad
+            try (PreparedStatement pstmt1 = conn.prepareStatement(sqlRegistros)) {
+                pstmt1.setInt(1, idHabito);
+                pstmt1.executeUpdate();
+            }
+            // Luego destruimos el hábito
+            try (PreparedStatement pstmt2 = conn.prepareStatement(sqlHabito)) {
+                pstmt2.setInt(1, idHabito);
+                pstmt2.executeUpdate();
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al eliminar hábito: " + e.getMessage());
+        }
+    }
+
+    // 7. Editar un Hábito Existente
+    public static void actualizarHabito(int idHabito, String nuevoNombre, int idCategoria, String colorHex) {
+        String sql = "UPDATE Habitos SET nombre = ?, id_categoria = ?, color = ? WHERE id = ?";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, nuevoNombre);
+            pstmt.setInt(2, idCategoria);
+            pstmt.setString(3, colorHex);
+            pstmt.setInt(4, idHabito);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error al actualizar hábito: " + e.getMessage());
+        }
+    }
+
+   // =======================================================
+    // 🧠 FASE 5: CRUD DE ESTADO DE ÁNIMO (SISTEMA DE COLORES)
+    // =======================================================
+
+    // --- 1. GESTIÓN DE LA LEYENDA (LOS COLORES) ---
+    
+    public static ArrayList<EstadoAnimo> obtenerEstadosAnimo() {
+        ArrayList<EstadoAnimo> lista = new ArrayList<>();
+        String sql = "SELECT * FROM estados_animo";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
+             java.sql.ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                lista.add(new EstadoAnimo(rs.getInt("id"), rs.getString("nombre"), rs.getString("colorHex")));
+            }
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al cargar estados de ánimo: " + e.getMessage());
+        }
+        return lista;
+    }
+
+    public static void agregarEstadoAnimo(String nombre, String colorHex) {
+        String sql = "INSERT INTO estados_animo (nombre, colorHex) VALUES (?, ?)";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, nombre);
+            pstmt.setString(2, colorHex);
+            pstmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al agregar estado: " + e.getMessage());
+        }
+    }
+
+    public static void actualizarEstadoAnimo(int id, String nombre, String colorHex) {
+        String sql = "UPDATE estados_animo SET nombre = ?, colorHex = ? WHERE id = ?";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, nombre);
+            pstmt.setString(2, colorHex);
+            pstmt.setInt(3, id);
+            pstmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al actualizar estado: " + e.getMessage());
+        }
+    }
+
+    public static void eliminarEstadoAnimo(int id) {
+        String sql = "DELETE FROM estados_animo WHERE id = ?";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            pstmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al eliminar estado: " + e.getMessage());
+        }
+    }
+
+    // --- 2. GESTIÓN DEL REGISTRO DIARIO (LA MATRIZ) ---
+
+    public static void registrarAnimo(java.time.LocalDate fecha, int idEstado) {
+        String sql = "INSERT OR REPLACE INTO animo_diario_v2 (fecha, id_estado) VALUES (?, ?)";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, fecha.toString());
+            pstmt.setInt(2, idEstado);
+            pstmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al registrar el ánimo: " + e.getMessage());
+        }
+    }
+
+    public static void eliminarAnimo(java.time.LocalDate fecha) {
+        String sql = "DELETE FROM animo_diario_v2 WHERE fecha = ?";
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, fecha.toString());
+            pstmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al eliminar el ánimo: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extrae los ánimos cruzando la tabla diaria con la leyenda para traer el color.
+     * Retorna un mapa: Clave = Día (int), Valor = Objeto EstadoAnimo
+     */
+    public static java.util.HashMap<Integer, EstadoAnimo> obtenerAnimosMes(int year, int month) {
+        java.util.HashMap<Integer, EstadoAnimo> animosDelMes = new java.util.HashMap<>();
+        
+        String prefijoFecha = String.format("%04d-%02d", year, month);
+        // Hacemos un JOIN para traer el color directamente de la base de datos
+        String sql = "SELECT a.fecha, e.id, e.nombre, e.colorHex "
+                   + "FROM animo_diario_v2 a "
+                   + "JOIN estados_animo e ON a.id_estado = e.id "
+                   + "WHERE a.fecha LIKE ?";
+        
+        try (java.sql.Connection conn = conectar();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, prefijoFecha + "%");
+            java.sql.ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                int dia = Integer.parseInt(rs.getString("fecha").substring(8, 10));
+                EstadoAnimo estado = new EstadoAnimo(rs.getInt("id"), rs.getString("nombre"), rs.getString("colorHex"));
+                animosDelMes.put(dia, estado);
+            }
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error al cargar los ánimos del mes: " + e.getMessage());
+        }
+        return animosDelMes;
+    }
+
+    // =======================================================
+    // 📈 FASE 5.5: ANALÍTICA CRUZADA (Ánimo vs Productividad)
+    // =======================================================
+    public static java.util.HashMap<EstadoAnimo, Double> calcularEfectividadPorAnimo(int year, int month) {
+        java.util.HashMap<EstadoAnimo, Double> resultados = new java.util.HashMap<>();
+        if (idUsuarioActual == -1) return resultados;
+
+        java.util.HashMap<Integer, EstadoAnimo> animosMes = obtenerAnimosMes(year, month);
+        java.util.ArrayList<Habito> todosLosHabitos = obtenerHabitos();
+        
+        if (animosMes.isEmpty() || todosLosHabitos.isEmpty()) return resultados;
+
+        // 1. Extraer TODOS los hábitos completados este mes en una sola consulta rápida
+        String prefijoFecha = String.format("%04d-%02d-%%", year, month);
+        String sql = "SELECT hr.id_habito, hr.fecha FROM Habitos_Registro hr JOIN Habitos h ON hr.id_habito = h.id WHERE h.id_usuario = ? AND hr.fecha LIKE ?";
+        
+        java.util.HashMap<Integer, java.util.ArrayList<Integer>> registrosDelMes = new java.util.HashMap<>();
+        try (java.sql.Connection conn = conectar(); java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuarioActual);
+            pstmt.setString(2, prefijoFecha);
+            java.sql.ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                int idHabito = rs.getInt("id_habito");
+                int dia = Integer.parseInt(rs.getString("fecha").substring(8, 10));
+                registrosDelMes.putIfAbsent(dia, new java.util.ArrayList<>());
+                registrosDelMes.get(dia).add(idHabito);
+            }
+        } catch (java.sql.SQLException e) { System.out.println("Error Analítica: " + e.getMessage()); }
+
+        // 2. Estructuras temporales para calcular promedios
+        java.util.HashMap<Integer, Double> sumaPorcentajes = new java.util.HashMap<>();
+        java.util.HashMap<Integer, Integer> conteoDias = new java.util.HashMap<>();
+        java.util.HashMap<Integer, EstadoAnimo> mapaEstados = new java.util.HashMap<>();
+
+        int diasDelMes = java.time.YearMonth.of(year, month).lengthOfMonth();
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+
+        // 3. Procesar día a día
+        for (int dia = 1; dia <= diasDelMes; dia++) {
+            java.time.LocalDate fecha = java.time.LocalDate.of(year, month, dia);
+            if (fecha.isAfter(hoy)) break; // No analizamos el futuro
+
+            EstadoAnimo estadoDelDia = animosMes.get(dia);
+            if (estadoDelDia != null) {
+                mapaEstados.put(estadoDelDia.getId(), estadoDelDia);
+
+                int habitosActivos = 0;
+                int habitosCompletados = 0;
+                java.util.ArrayList<Integer> completadosHoy = registrosDelMes.getOrDefault(dia, new java.util.ArrayList<>());
+
+                for (Habito h : todosLosHabitos) {
+                    if (!fecha.isBefore(h.getFechaCreacion())) {
+                        habitosActivos++; // El hábito existía ese día
+                        if (completadosHoy.contains(h.getId())) {
+                            habitosCompletados++; // El hábito se cumplió ese día
+                        }
+                    }
+                }
+
+                if (habitosActivos > 0) {
+                    // Calculamos la disciplina matemática de este día en particular
+                    double porcentajeDia = ((double) habitosCompletados / habitosActivos) * 100.0;
+                    sumaPorcentajes.put(estadoDelDia.getId(), sumaPorcentajes.getOrDefault(estadoDelDia.getId(), 0.0) + porcentajeDia);
+                    conteoDias.put(estadoDelDia.getId(), conteoDias.getOrDefault(estadoDelDia.getId(), 0) + 1);
+                }
+            }
+        }
+
+        // 4. Calcular el porcentaje final promedio de cada emoción
+        for (Integer idEstado : sumaPorcentajes.keySet()) {
+            double promedio = sumaPorcentajes.get(idEstado) / conteoDias.get(idEstado);
+            resultados.put(mapaEstados.get(idEstado), promedio);
+        }
+
+        return resultados;
     }
 
 }
