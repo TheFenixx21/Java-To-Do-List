@@ -6,7 +6,7 @@ Con la llegada de la versión **V8.0.0e**, la aplicación evoluciona de un gesto
 
 ---
 
-## 🚀 Novedades en la Versión 8.0.0e (Sincronización P2P, Ecosistema y Redes)
+## 🚀 Novedades en la Versión V8.0.0e (Sincronización P2P, Ecosistema y Redes)
 
 Esta actualización transforma la estructura interna de la aplicación, permitiendo compartir información sin depender de nubes externas, servidores de terceros o conexión a internet:
 
