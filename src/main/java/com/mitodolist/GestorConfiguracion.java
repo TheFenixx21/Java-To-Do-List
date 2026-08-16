@@ -44,6 +44,9 @@ public class GestorConfiguracion {
             inyectarColumnaSiFalta(conn, "tema_claro", "INTEGER DEFAULT 0");
             inyectarColumnaSiFalta(conn, "formato_fecha", "TEXT DEFAULT 'dd/MM/yyyy'");
             
+            // 🚨 NUEVO: Red y Sincronización (V8.0.0e)
+            inyectarColumnaSiFalta(conn, "sincronizacion_automatica", "INTEGER DEFAULT 0");
+            
             System.out.println("⚙️ Motor de Configuraciones: Actualizado y Operativo.");
         } catch (SQLException e) {
             System.out.println("Error crítico en Auto-Update de Configuraciones: " + e.getMessage());
@@ -86,7 +89,9 @@ public class GestorConfiguracion {
                         rs.getInt("modo_privacidad") == 1,
                         rs.getString("color_acento"),
                         rs.getInt("tema_claro") == 1,
-                        rs.getString("formato_fecha")
+                        rs.getString("formato_fecha"),
+                        // 🚨 NUEVO: Extraemos el valor de la red
+                        rs.getInt("sincronizacion_automatica") == 1
                     );
                 } else {
                     crearConfiguracionPorDefecto(conn);
@@ -110,9 +115,11 @@ public class GestorConfiguracion {
     public static void guardarConfiguracion(Configuracion config) {
         if (GestorBaseDatos.idUsuarioActual == -1) return;
 
+        // 🚨 NUEVO: Añadimos sincronizacion_automatica a la sentencia SQL
         String sql = "UPDATE configuraciones SET intervalo_notificaciones = ?, arranque_automatico = ?, " +
                      "sonido_notificaciones = ?, ocultar_completadas_auto = ?, bloqueo_inactividad = ?, " +
-                     "modo_privacidad = ?, color_acento = ?, tema_claro = ?, formato_fecha = ? " +
+                     "modo_privacidad = ?, color_acento = ?, tema_claro = ?, formato_fecha = ?, " +
+                     "sincronizacion_automatica = ? " +
                      "WHERE id_usuario = ?";
         
         try (Connection conn = GestorBaseDatos.conectar();
@@ -127,7 +134,11 @@ public class GestorConfiguracion {
             pstmt.setString(7, config.getColorAcento());
             pstmt.setInt(8, config.isTemaClaro() ? 1 : 0);
             pstmt.setString(9, config.getFormatoFecha());
-            pstmt.setInt(10, GestorBaseDatos.idUsuarioActual);
+            // 🚨 NUEVO: Inyectamos el valor en el interrogante 10
+            pstmt.setInt(10, config.isSincronizacionAutomatica() ? 1 : 0);
+            
+            // 🚨 El ID de usuario pasa a ser el interrogante 11
+            pstmt.setInt(11, GestorBaseDatos.idUsuarioActual);
             
             pstmt.executeUpdate();
             
@@ -135,10 +146,9 @@ public class GestorConfiguracion {
             System.out.println("Error al guardar configuración: " + e.getMessage());
         }
     }
-
+    
     /**
      * Configura el Auto-Arranque usando un Lanzador Silencioso (VBScript) en la Carpeta Startup.
-     * Utiliza jpackage.app-path para obtener la ruta absoluta y exacta del .exe dinámicamente.
      */
     public static void configurarArranqueWindows(boolean activar) {
         if (!System.getProperty("os.name").toLowerCase().contains("win")) return;
@@ -148,31 +158,29 @@ public class GestorConfiguracion {
             java.io.File archivoArranque = new java.io.File(carpetaInicio, "MiToDoList_Arranque.vbs");
 
             if (activar) {
-                // 1. RADAR DINÁMICO: Le preguntamos a la JVM la ruta exacta del .exe que la lanzó.
                 String rutaEjecutable = System.getProperty("jpackage.app-path");
                 
                 if (rutaEjecutable == null) {
-                    // Fallback de emergencia (por si lo estás probando desde el IDE)
-                    // Ajustado para coincidir con el nombre de tu acceso directo
                     rutaEjecutable = System.getProperty("user.dir") + java.io.File.separator + "MiTodoList.exe";
                 }
 
-                // Extraemos la ruta de la carpeta padre para el "CurrentDirectory"
                 java.io.File archivoExe = new java.io.File(rutaEjecutable);
                 String rutaCarpeta = archivoExe.getParent();
 
-                // 2. Escribimos el Script Invisible
                 java.io.FileWriter writer = new java.io.FileWriter(archivoArranque);
                 writer.write("Set WshShell = CreateObject(\"WScript.Shell\")\n");
+                
+                // 🚨 FIX ARRANQUE: Añadimos 8 segundos de retraso. 
+                // Evita que Java colapse porque Windows aún no ha terminado de cargar los drivers y la red.
+                writer.write("WScript.Sleep 8000\n"); 
+                
                 writer.write("WshShell.CurrentDirectory = \"" + rutaCarpeta + "\"\n");
-                // Chr(34) encierra la ruta en comillas dobles (") para proteger cualquier espacio en el nombre
                 writer.write("WshShell.Run Chr(34) & \"" + rutaEjecutable + "\" & Chr(34), 0\n");
                 writer.write("Set WshShell = Nothing\n");
                 writer.close();
 
                 System.out.println("🚀 Lanzador VBS configurado exitosamente apuntando a: " + rutaEjecutable);
             } else {
-                // 3. Borramos el script si el usuario desactiva la opción
                 if (archivoArranque.exists()) {
                     archivoArranque.delete();
                     System.out.println("🛑 Arranque automático desactivado (Script VBS eliminado).");

@@ -213,16 +213,42 @@
             </VBox>
 
             <!-- VISTA 5: CUENTA -->
+            <!-- VISTA 5: CUENTA Y RED -->
             <VBox fx:id="vistaCuenta" visible="false" alignment="TOP_LEFT" spacing="25.0">
                <children>
                   <HBox alignment="CENTER_LEFT" spacing="15.0">
                      <children>
                         <Button mnemonicParsing="false" onAction="#mostrarDashboard" style="-fx-font-size: 20px;" styleClass="boton-transparente" text="⬅" />
-                        <Label style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Mi Cuenta" />
+                        <Label style="-fx-font-size: 24px; -fx-font-weight: bold;" styleClass="texto-principal" text="Mi Cuenta y Red" />
                      </children>
                   </HBox>
+                  
+                  <!-- NUEVO PANEL: SINCRONIZACIÓN -->
+                  <VBox spacing="15.0" style="-fx-padding: 25; -fx-background-radius: 10;" styleClass="fondo-panel">
+                     <children>
+                        <Label style="-fx-font-size: 18px; -fx-font-weight: bold;" styleClass="texto-principal" text="📱 Sincronización Móvil (P2P)" />
+                        <CheckBox fx:id="chkSyncAuto" onAction="#guardarConfigSyncAuto" style="-fx-font-size: 15px;" styleClass="texto-principal" text="Sincronización Automática (Confiar en esta red)" />
+                        
+                        <Button fx:id="btnSincronizar" onAction="#accionSincronizar" prefHeight="40.0" prefWidth="300.0" styleClass="boton-acento" text="🔄 Iniciar Sincronización Manual" />
+                        
+                        <!-- Panel de Información Mágica (Oculto por defecto) -->
+                        <VBox fx:id="panelInfoSync" visible="false" managed="false" spacing="10.0" style="-fx-background-color: -bg-caja; -fx-padding: 15; -fx-background-radius: 10; -fx-border-color: -color-acento; -fx-border-radius: 10; -fx-border-width: 2;">
+                           <children>
+                               <Label style="-fx-font-size: 14px; -fx-font-weight: bold;" styleClass="texto-principal" text="Servidor Activo. Abre tu app en Android e ingresa:" />
+                               <HBox spacing="20.0" alignment="CENTER_LEFT">
+                                   <Label fx:id="lblIpSync" style="-fx-font-size: 18px; -fx-font-family: monospace;" styleClass="texto-acento" text="IP: 192.168.X.X" />
+                                   <Label fx:id="lblPinSync" style="-fx-font-size: 18px; -fx-font-family: monospace;" styleClass="texto-acento" text="PIN: 0000" />
+                               </HBox>
+                               <Button onAction="#accionDetenerSync" prefHeight="30.0" prefWidth="100.0" styleClass="boton-secundario" text="🛑 Detener" />
+                           </children>
+                        </VBox>
+                     </children>
+                  </VBox>
+
+                  <!-- PANEL ORIGINAL: SEGURIDAD -->
                   <VBox spacing="20.0" style="-fx-padding: 25; -fx-background-radius: 10;" styleClass="fondo-panel">
                      <children>
+                        <Label style="-fx-font-size: 18px; -fx-font-weight: bold;" styleClass="texto-principal" text="🔐 Seguridad Local" />
                         <Button onAction="#accionCambiarPin" prefHeight="40.0" prefWidth="250.0" styleClass="boton-secundario" text="🔑 Cambiar PIN de Acceso" />
                         <Label style="-fx-font-size: 12px;" styleClass="texto-secundario" text="Zona de Peligro:" />
                         <Button onAction="#accionEliminarCuenta" prefHeight="40.0" prefWidth="250.0" style="-fx-background-color: #F44336; -fx-text-fill: white;" text="🗑️ Eliminar mi cuenta y datos" />

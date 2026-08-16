@@ -2,32 +2,28 @@
 
 Una aplicación de escritorio moderna y eficiente construida con **Java y JavaFX**, diseñada para la gestión de tareas personales.
 
-Con la llegada de la monumental versión **V7.0.0e**, la aplicación evoluciona de un simple gestor de tareas a una suite integral de productividad. Introduciendo un sofisticado sistema de seguimiento de hábitos, gestión avanzada del tiempo con rutinas, analítica de estados de ánimo y un motor visual en tiempo real, estableciendo un nuevo estándar en la experiencia del usuario.
+Con la llegada de la versión **V8.0.0e**, la aplicación evoluciona de un gestor de tareas estrictamente local a un ecosistema distribuido. Introduciendo una sofisticada arquitectura de sincronización P2P (Peer-to-Peer) por red local, un motor de resolución de conflictos inteligente y un protocolo de seguridad "Zero-Trust", sentando las bases para la comunicación directa e invisible con dispositivos móviles.
 
 ---
 
-## 🚀 Novedades en la Versión 7.0.0e (Hábitos, Gestión de Tiempo y UI Inteligente)
+## 🚀 Novedades en la Versión 8.0.0e (Sincronización P2P, Ecosistema y Redes)
 
-Esta gran actualización expande radicalmente las capacidades de la aplicación, brindando herramientas avanzadas de desarrollo personal y una interfaz altamente dinámica:
+Esta actualización transforma la estructura interna de la aplicación, permitiendo compartir información sin depender de nubes externas, servidores de terceros o conexión a internet:
 
-* **Sistema Integral de Hábitos y Mood Tracker:**
-  * **Creación y Gestión de Hábitos:** Nuevo módulo independiente con sistema CRUD para registrar rutinas a largo plazo, totalmente separado de las tareas diarias mediante aislamiento en la base de datos.
-  * **Matriz Visual Interactiva:** Cuadrícula mensual para llevar un control visual y rápido de la constancia (rachas) en cada hábito.
-  * **Mood Tracker:** Selector de "Estado de Ánimo" diario con emojis y colores personalizados, permitiendo un cruce de datos entre las emociones y el éxito de las rutinas.
-* **Gestión Avanzada de Tiempo y Repetición:**
-  * **Control de Horas Exactas:** Capacidad para establecer una hora específica (formato 12h AM/PM) de vencimiento para cada tarea.
-  * **Rutinas e Intervalos (CRUD):** Las tareas ahora pueden configurarse para repetirse de forma diaria, semanal, mensual o mediante intervalos de días completamente personalizados.
-  * **Historial de Tareas:** Implementación de un historial detallado accesible para aquellas tareas recurrentes, permitiendo ver cuándo se han completado a lo largo del tiempo.
-* **Analítica y Estadísticas de Productividad:**
-  * **Panel de Gráficos:** Nuevo módulo estadístico que genera gráficos circulares y de barras en base al rendimiento actual.
-  * **Análisis de Impacto Emocional:** Gráficas inteligentes que evalúan y muestran cómo afecta cada estado de ánimo al porcentaje de disciplina del usuario en sus hábitos.
-* **Experiencia de Usuario (UX) y Mejoras de Interfaz:**
-  * **Live Preview & Color Picker:** Inclusión de un selector de color libre para el acento visual de la aplicación. Los cambios de temas (Oscuro/Claro) y colores ahora se aplican en tiempo real en toda la interfaz sin necesidad de guardar ni reiniciar.
-  * **Redimensionamiento Automático:** La ventana principal ahora detecta inteligentemente la resolución del monitor del usuario y ajusta su tamaño inicial al 85% de la pantalla para una visibilidad óptima.
-  * **Indicadores Dinámicos de Menú:** Las categorías ahora se sombrean visualmente en el menú lateral para indicarle al usuario exactamente en qué lista se encuentra.
-  * **Minimización a la Bandeja (System Tray):** Soporte para mantener la aplicación corriendo en segundo plano sin estorbar en la barra de tareas.
-  * **Atajos de Teclado Globales:** Nuevas combinaciones de teclas para agilizar la interacción y mejorar el flujo de trabajo.
-  * **Correcciones Críticas (Bug Fixes):** Solución de problemas en la asignación de repeticiones en tareas sin fechas, corrección de solapamiento de ventanas (robo de foco) y mejoras estructurales.
+* **Ecosistema Distribuido y Sincronización Local (Zero-Trust):**
+  * **Servidor TCP Integrado:** La aplicación ahora incluye un motor de red capaz de levantar un servidor seguro en el puerto local, permitiendo la transferencia de datos encriptada (JSON) directamente a través del Wi-Fi de tu hogar.
+  * **Sincronización Manual y Automática:** Opción de sincronizar datos bajo demanda o habilitar un modo "demonio" silencioso que se mantiene a la escucha en segundo plano.
+  * **Protocolo de Autenticación (Handshake):** Máxima seguridad de red mediante la generación de un PIN temporal (OTP) para la primera vinculación, y el posterior intercambio de "Tokens de Confianza" encriptados para conexiones automáticas futuras sin fricción.
+* **Evolución del Motor de Base de Datos SQLite:**
+  * **Identidad Global (UUID):** Refactorización masiva de las tablas de Tareas, Hábitos y Categorías para adoptar Identificadores Universales Únicos, permitiendo que múltiples dispositivos reconozcan el mismo elemento.
+  * **Eliminación Lógica (Soft Delete):** Implementación de borrado lógico y banderas de red (`fecha_modificacion`, `estado_sync`) que protegen la integridad estructural de la base de datos al sincronizar elementos destruidos.
+  * **Motor de Fusión (LWW - Last Write Wins):** Nuevo algoritmo matemático impulsado por SQLite UPSERT para procesar archivos de sincronización entrantes y resolver conflictos de edición (Merge) de forma automática y sin duplicar tareas.
+* **Criptografía y Serialización:**
+  * **Carga Útil Encriptada:** Los archivos JSON generados para la sincronización mantienen la encriptación AES-128 nativa en los datos sensibles (como las descripciones de tareas), garantizando que la información viaje protegida por la red.
+* **Correcciones Críticas y Optimizaciones (Bug Fixes):**
+  * **Estabilidad del Auto-Arranque:** Inyección de un retraso estratégico (8 segundos) en el motor del VBScript de inicio de Windows. Esto asegura que los servicios de red y gráficos del SO estén completamente cargados antes de ejecutar Java, previniendo caídas silenciosas (HeadlessException).
+  * **Fluidez del System Tray:** Corrección definitiva del congelamiento del menú contextual (clic derecho) en la bandeja del sistema forzando el arranque anticipado del motor gráfico AWT.
+  * **Mejora de UX en Segundo Plano:** El icono minimizado ahora responde de manera instantánea a la restauración de la ventana con un simple clic izquierdo.
 
 ## 📥 Instalación (Para Usuarios)
 
@@ -51,4 +47,4 @@ Si deseas clonar el código fuente y compilar el proyecto tú mismo, el reposito
 3. Ejecuta el archivo `compilar.bat`. El script limpiará el entorno, compilará las dependencias y generará un nuevo instalador `.exe` en la raíz del proyecto.
 
 ---
-*Desarrollado con pasión para mejorar la productividad diaria.*
+*Desarrollado con pasión para mejorar la productividad diaria. Cero Nubes, Máxima Privacidad.*

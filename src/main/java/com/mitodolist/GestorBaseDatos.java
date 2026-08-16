@@ -56,7 +56,8 @@ public class GestorBaseDatos {
         // ==========================================
         String sqlEstados = "CREATE TABLE IF NOT EXISTS estados_animo (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL, colorHex TEXT NOT NULL);";
         String sqlAnimoDiario = "CREATE TABLE IF NOT EXISTS animo_diario_v2 (fecha TEXT PRIMARY KEY, id_estado INTEGER, FOREIGN KEY(id_estado) REFERENCES estados_animo(id) ON DELETE CASCADE);";                       
-            
+        String sqlTokens = "CREATE TABLE IF NOT EXISTS dispositivos_confianza (token TEXT PRIMARY KEY, nombre_dispositivo TEXT, id_usuario INTEGER, fecha_vinculacion INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE);";
+
         try (Connection conn = conectar(); Statement stmt = conn.createStatement()) {
             stmt.execute("PRAGMA foreign_keys = ON;"); 
             
@@ -67,6 +68,7 @@ public class GestorBaseDatos {
             stmt.execute(sqlRegistrosHabitos);
             stmt.execute(sqlEstados);
             stmt.execute(sqlAnimoDiario);
+            stmt.execute(sqlTokens);
             
             // Si la tabla de estados está vacía, inyectamos 3 emociones por defecto
             String sqlCheckEstados = "SELECT COUNT(*) AS total FROM estados_animo";
@@ -146,18 +148,58 @@ public class GestorBaseDatos {
             // 🚨 Requisitos de la Fase de Hábitos
             inyectarColumnaSiFalta(conn, "Habitos", "fecha_creacion", "TEXT DEFAULT '" + java.time.LocalDate.now().toString() + "'");
 
-            migrarPinesAHash();
-            migrarTareasAEncriptacion();
+            // ☁️ REQUISITOS V8.0.0e (INFRAESTRUCTURA DE NUBE Y SINCRONIZACIÓN)
+            String[] tablasSync = {"tareas", "categorias", "Habitos"};
+            for (String tabla : tablasSync) {
+                // 1. Inyectamos la columna de forma normal (para que SQLite no llore)
+                inyectarColumnaSiFalta(conn, tabla, "uuid", "TEXT");
+                inyectarColumnaSiFalta(conn, tabla, "fecha_modificacion", "INTEGER DEFAULT 0");
+                inyectarColumnaSiFalta(conn, tabla, "estado_sync", "TEXT DEFAULT 'PENDIENTE'");
+                inyectarColumnaSiFalta(conn, tabla, "eliminado", "INTEGER DEFAULT 0");
+            }
 
-            // --- LIMPIEZA DE BASURA DE LA V3 ---
-            java.io.File archivoJson = new java.io.File(CARPETA_APP + java.io.File.separator + "tareas.json");
-            if (archivoJson.exists()) {
-                archivoJson.delete();
-                System.out.println("🧹 Archivo tareas.json obsoleto eliminado.");
+            // 2. Llenamos los UUIDs vacíos PRIMERO
+            generarUUIDsFaltantes();
+
+            // 3. 🛡️ BLINDAJE MATEMÁTICO: Obligamos a SQLite a rechazar cualquier UUID duplicado
+            for (String tabla : tablasSync) {
+                try (Statement stmtIdx = conn.createStatement()) {
+                    stmtIdx.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_" + tabla + "_uuid ON " + tabla + "(uuid)");
+                } catch (SQLException e) {
+                    System.out.println("Error al aplicar blindaje UNIQUE a " + tabla + ": " + e.getMessage());
+                }
             }
 
         } catch (SQLException e) {
             System.out.println("❌ Error crítico de conexión durante el Auto-Update: " + e.getMessage());
+        }
+    }
+
+    // =======================================================
+    // ☁️ MOTOR DE IDENTIDAD GLOBAL (UUID) V8.0.0e
+    // =======================================================
+    private static void generarUUIDsFaltantes() {
+        String[] tablasSync = {"tareas", "categorias", "Habitos"};
+        
+        try (Connection conn = conectar(); Statement stmt = conn.createStatement()) {
+            for (String tabla : tablasSync) {
+                // Buscamos registros viejos que no tengan UUID
+                String sqlSelect = "SELECT id FROM " + tabla + " WHERE uuid IS NULL";
+                String sqlUpdate = "UPDATE " + tabla + " SET uuid = ?, fecha_modificacion = ? WHERE id = ?";
+                
+                try (ResultSet rs = stmt.executeQuery(sqlSelect);
+                     PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                    
+                    while (rs.next()) {
+                        pstmt.setString(1, java.util.UUID.randomUUID().toString()); // Ej: 123e4567-e89b-12d3-a456-426614174000
+                        pstmt.setLong(2, System.currentTimeMillis()); // Sello de tiempo (Epoch)
+                        pstmt.setInt(3, rs.getInt("id"));
+                        pstmt.executeUpdate();
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al generar UUIDs globales: " + e.getMessage());
         }
     }
 
@@ -171,7 +213,7 @@ public class GestorBaseDatos {
         String sql = "SELECT t.id, t.descripcion, t.completada, t.fecha_vencimiento, t.hora_vencimiento, t.tipo_repeticion, t.id_tarea_padre, t.expandida, c.nombre AS nombre_categoria " +
                      "FROM tareas t " +
                      "INNER JOIN categorias c ON t.id_categoria = c.id " +
-                     "WHERE t.id_usuario = ?";
+                     "WHERE t.id_usuario = ? AND t.eliminado = 0";
 
         try (Connection conn = conectar();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -215,14 +257,20 @@ public class GestorBaseDatos {
         } catch (SQLException e) {
             System.out.println("Error al cargar tareas desde SQLite: " + e.getMessage());
         }
-        
+
         return listaPrincipal; 
     }
     
-    // 2. INSERTAR TAREA (Soporta Padres e Hijas y Variables V7)
+    // 2. INSERTAR TAREA (V8.0.0e - Cloud Ready con UUID)
     public static void insertarTarea(Tarea t, int idCategoria) {
-        // CORRECCIÓN: Se eliminó el duplicado y ahora son exactamente 9 columnas y 9 interrogantes
-        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, hora_vencimiento, tipo_repeticion, id_categoria, id_usuario, id_tarea_padre, expandida) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // 🚨 Inyectamos el UUID y las banderas de sincronización desde el nacimiento
+        String uuidNuevo = java.util.UUID.randomUUID().toString();
+        long marcaTiempo = System.currentTimeMillis();
+        
+        String sql = "INSERT INTO tareas (descripcion, completada, fecha_vencimiento, hora_vencimiento, " +
+                     "tipo_repeticion, id_categoria, id_usuario, id_tarea_padre, expandida, " +
+                     "uuid, fecha_modificacion, estado_sync, eliminado) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 0)";
         
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -235,7 +283,6 @@ public class GestorBaseDatos {
             pstmt.setInt(6, idCategoria);
             pstmt.setInt(7, idUsuarioActual);
             
-            // --- NUEVO: ¿Tiene padre? ---
             if (t.getIdTareaPadre() != null) {
                 pstmt.setInt(8, t.getIdTareaPadre());
             } else {
@@ -243,19 +290,32 @@ public class GestorBaseDatos {
             }
             pstmt.setInt(9, t.isExpandida() ? 1 : 0);
             
+            // --- VARIABLES DE RED ---
+            pstmt.setString(10, uuidNuevo);
+            pstmt.setLong(11, marcaTiempo);
+            
             pstmt.executeUpdate();
             
+            // Le devolvemos a la RAM sus identificadores recién creados
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
-                if (rs.next()) t.setId(rs.getInt(1)); 
+                if (rs.next()) {
+                    t.setId(rs.getInt(1)); 
+                    // Si tienes el setter en Tarea.java, lo ideal es: t.setUuid(uuidNuevo);
+                }
             }
         } catch (SQLException e) {
             System.out.println("Error al insertar tarea: " + e.getMessage());
         }
     }
 
-    // 3. ACTUALIZAR TAREA (Incluye reasignación de padres y variables V7)
+    // 3. ACTUALIZAR TAREA (V8.0.0e - Gatillo de Sincronización)
     public static void actualizarTarea(Tarea t) {
-        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, hora_vencimiento = ?, tipo_repeticion = ?, id_categoria = ?, id_tarea_padre = ?, expandida = ? WHERE id = ?";
+        // 🚨 Si el usuario edita una tarea, disparamos la fecha de modificación y la ponemos 'PENDIENTE'
+        long marcaTiempo = System.currentTimeMillis();
+        
+        String sql = "UPDATE tareas SET descripcion = ?, completada = ?, fecha_vencimiento = ?, " +
+                     "hora_vencimiento = ?, tipo_repeticion = ?, id_categoria = ?, id_tarea_padre = ?, " +
+                     "expandida = ?, fecha_modificacion = ?, estado_sync = 'PENDIENTE' WHERE id = ?";
         
         try (Connection conn = conectar(); 
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -274,7 +334,10 @@ public class GestorBaseDatos {
             }
             
             pstmt.setInt(8, t.isExpandida() ? 1 : 0); 
-            pstmt.setInt(9, t.getId()); 
+            
+            // --- VARIABLES DE RED ---
+            pstmt.setLong(9, marcaTiempo);
+            pstmt.setInt(10, t.getId()); 
             
             pstmt.executeUpdate(); 
             
@@ -283,28 +346,30 @@ public class GestorBaseDatos {
         }
     }
 
-    // V7.0.1e: Destrucción total (Tarea + Historial fantasma)
+    // V8.0.0e: Eliminación Lógica (Soft Delete) para Nube
     public static void eliminarTareaBD(int idTarea, String descripcionTarea) {
-        String sqlPrincipal = "DELETE FROM tareas WHERE id = ?";
-        // Buscamos los fantasmas que tengan la misma descripción y pertenezcan a este usuario
-        String sqlFantasmas = "DELETE FROM tareas WHERE descripcion = ? AND tipo_repeticion = 'HISTORIAL' AND id_usuario = ?";
+        // En lugar de DELETE, marcamos como eliminado y pendiente de informar a la nube
+        String sqlPrincipal = "UPDATE tareas SET eliminado = 1, estado_sync = 'PENDIENTE', fecha_modificacion = ? WHERE id = ?";
+        String sqlFantasmas = "UPDATE tareas SET eliminado = 1, estado_sync = 'PENDIENTE', fecha_modificacion = ? WHERE descripcion = ? AND tipo_repeticion = 'HISTORIAL' AND id_usuario = ?";
         
+        long marcaTiempo = System.currentTimeMillis();
+
         try (Connection conn = conectar()) {
-            // 1. Matamos la tarea real
             try (PreparedStatement pstmt1 = conn.prepareStatement(sqlPrincipal)) {
-                pstmt1.setInt(1, idTarea);
+                pstmt1.setLong(1, marcaTiempo);
+                pstmt1.setInt(2, idTarea);
                 pstmt1.executeUpdate();
             }
-            // 2. Matamos su historial (Si existe)
             if (descripcionTarea != null) {
                 try (PreparedStatement pstmt2 = conn.prepareStatement(sqlFantasmas)) {
-                    pstmt2.setString(1, encriptarTexto(descripcionTarea));
-                    pstmt2.setInt(2, idUsuarioActual);
+                    pstmt2.setLong(1, marcaTiempo);
+                    pstmt2.setString(2, encriptarTexto(descripcionTarea));
+                    pstmt2.setInt(3, idUsuarioActual);
                     pstmt2.executeUpdate();
                 }
             }
         } catch (SQLException e) {
-            System.out.println("Error al eliminar tarea e historial: " + e.getMessage());
+            System.out.println("Error al aplicar Soft-Delete a la tarea: " + e.getMessage());
         }
     }
 
@@ -331,16 +396,23 @@ public class GestorBaseDatos {
 
     // 5. INSERTAR CATEGORÍA (Marcada con el dueño y el tipo de vista)
     public static void insertarCategoria(String nombre, String color) {
+        // Este puente se queda exactamente igual
         insertarCategoria(nombre, color, "TAREAS");
     }
 
+    // V8.0.0e - Cloud Ready (Este es el que hace el trabajo real en la BD)
     public static void insertarCategoria(String nombre, String color, String tipoVista) {
-        String sql = "INSERT INTO categorias (nombre, color, id_usuario, tipo) VALUES (?, ?, ?, ?)";
+        String uuidNuevo = java.util.UUID.randomUUID().toString();
+        long marcaTiempo = System.currentTimeMillis();
+        
+        String sql = "INSERT INTO categorias (nombre, color, id_usuario, tipo, uuid, fecha_modificacion, estado_sync, eliminado) VALUES (?, ?, ?, ?, ?, ?, 'PENDIENTE', 0)";
         try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, nombre);
             pstmt.setString(2, color);
             pstmt.setInt(3, idUsuarioActual);
-            pstmt.setString(4, tipoVista); // 🚨 Etiquetamos si es TAREA o HABITO
+            pstmt.setString(4, tipoVista); 
+            pstmt.setString(5, uuidNuevo);
+            pstmt.setLong(6, marcaTiempo);
             pstmt.executeUpdate();
         } catch (SQLException e) { System.out.println("Error al guardar la nueva categoría: " + e.getMessage()); }
     }
@@ -394,44 +466,38 @@ public class GestorBaseDatos {
         return 0;
     }
 
-    /**
-     * Eliminación en Cascada: Destruye primero las tareas y luego la categoría.
-     */
+    // 6. ELIMINAR CATEGORÍA EN CASCADA (V8.0.0e - Soft Delete)
     public static void eliminarCategoria(int idCategoria) {
-        // Ahora usamos DELETE en lugar de UPDATE para destruir las tareas
-        String sqlEliminarTareas = "DELETE FROM tareas WHERE id_categoria = ?";
-        String sqlEliminarCat = "DELETE FROM categorias WHERE id = ?";
+        long marcaTiempo = System.currentTimeMillis();
+        // Ocultamos las tareas internas y las marcamos para la nube
+        String sqlEliminarTareas = "UPDATE tareas SET eliminado = 1, estado_sync = 'PENDIENTE', fecha_modificacion = ? WHERE id_categoria = ?";
+        // Ocultamos la categoría padre
+        String sqlEliminarCat = "UPDATE categorias SET eliminado = 1, estado_sync = 'PENDIENTE', fecha_modificacion = ? WHERE id = ?";
 
         try (Connection conn = conectar()) {
-            // 1. Destruimos las tareas internas sin piedad
             try (PreparedStatement pstmt1 = conn.prepareStatement(sqlEliminarTareas)) {
-                pstmt1.setInt(1, idCategoria);
+                pstmt1.setLong(1, marcaTiempo);
+                pstmt1.setInt(2, idCategoria);
                 pstmt1.executeUpdate();
             }
-            
-            // 2. Destruimos la categoría
             try (PreparedStatement pstmt2 = conn.prepareStatement(sqlEliminarCat)) {
-                pstmt2.setInt(1, idCategoria);
+                pstmt2.setLong(1, marcaTiempo);
+                pstmt2.setInt(2, idCategoria);
                 pstmt2.executeUpdate();
             }
-        } catch (SQLException e) {
-            System.out.println("Error en eliminación en cascada: " + e.getMessage());
-        }
+        } catch (SQLException e) { System.out.println("Error en eliminación lógica en cascada: " + e.getMessage()); }
     }
 
-    /**
-     * Renombra una categoría existente.
-     */
+    // 7. ACTUALIZAR CATEGORÍA (V8.0.0e - Gatillo de Sincronización)
     public static void actualizarNombreCategoria(int idCategoria, String nuevoNombre) {
-        String sql = "UPDATE categorias SET nombre = ? WHERE id = ?";
-        try (Connection conn = conectar(); 
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        long marcaTiempo = System.currentTimeMillis();
+        String sql = "UPDATE categorias SET nombre = ?, fecha_modificacion = ?, estado_sync = 'PENDIENTE' WHERE id = ?";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, nuevoNombre);
-            pstmt.setInt(2, idCategoria);
+            pstmt.setLong(2, marcaTiempo);
+            pstmt.setInt(3, idCategoria);
             pstmt.executeUpdate();
-        } catch (SQLException e) {
-            System.out.println("Error al renombrar categoría: " + e.getMessage());
-        }
+        } catch (SQLException e) { System.out.println("Error al renombrar categoría: " + e.getMessage()); }
     }
 
     // ==========================================
@@ -910,20 +976,24 @@ public class GestorBaseDatos {
     // 🌱 MOTOR DE BASE DE DATOS PARA HÁBITOS (FASE 1)
     // =========================================================================
 
-    // 1. Crear un nuevo hábito
+    // 1. Crear un nuevo hábito (V8.0.0e - Cloud Ready)
     public static void insertarHabito(String nombre, int idCategoria, String colorHex) {
         if (idUsuarioActual == -1) return;
-        String sql = "INSERT INTO Habitos(id_usuario, id_categoria, nombre, color, fecha_creacion) VALUES(?,?,?,?,?)";
+        
+        String uuidNuevo = java.util.UUID.randomUUID().toString();
+        long marcaTiempo = System.currentTimeMillis();
+        
+        String sql = "INSERT INTO Habitos(id_usuario, id_categoria, nombre, color, fecha_creacion, uuid, fecha_modificacion, estado_sync, eliminado) VALUES(?,?,?,?,?,?,?,'PENDIENTE',0)";
         try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idUsuarioActual);
             pstmt.setInt(2, idCategoria);
             pstmt.setString(3, nombre);
             pstmt.setString(4, colorHex);
-            pstmt.setString(5, java.time.LocalDate.now().toString()); // 🚨 NUEVO
+            pstmt.setString(5, java.time.LocalDate.now().toString()); 
+            pstmt.setString(6, uuidNuevo);
+            pstmt.setLong(7, marcaTiempo);
             pstmt.executeUpdate();
-        } catch (SQLException e) {
-            System.out.println("Error al insertar hábito: " + e.getMessage());
-        }
+        } catch (SQLException e) { System.out.println("Error al insertar hábito: " + e.getMessage()); }
     }
 
     // 2. Marcar un hábito como completado en un día específico
@@ -991,38 +1061,40 @@ public class GestorBaseDatos {
         return lista;
     }
 
-    // 6. Eliminar Hábito y su Historial Completo
+    // 6. Eliminar Hábito (V8.0.0e - Soft Delete)
     public static void eliminarHabito(int idHabito) {
+        // Los registros (días completados) los borramos físicamente porque no los enviamos a la nube de momento
         String sqlRegistros = "DELETE FROM Habitos_Registro WHERE id_habito = ?";
-        String sqlHabito = "DELETE FROM Habitos WHERE id = ?";
+        // El hábito sí viaja a la nube, aplicamos Soft Delete
+        String sqlHabito = "UPDATE Habitos SET eliminado = 1, estado_sync = 'PENDIENTE', fecha_modificacion = ? WHERE id = ?";
+        
+        long marcaTiempo = System.currentTimeMillis();
+        
         try (Connection conn = conectar()) {
-            // Borramos el historial primero por seguridad
             try (PreparedStatement pstmt1 = conn.prepareStatement(sqlRegistros)) {
                 pstmt1.setInt(1, idHabito);
                 pstmt1.executeUpdate();
             }
-            // Luego destruimos el hábito
             try (PreparedStatement pstmt2 = conn.prepareStatement(sqlHabito)) {
-                pstmt2.setInt(1, idHabito);
+                pstmt2.setLong(1, marcaTiempo);
+                pstmt2.setInt(2, idHabito);
                 pstmt2.executeUpdate();
             }
-        } catch (SQLException e) {
-            System.out.println("Error al eliminar hábito: " + e.getMessage());
-        }
+        } catch (SQLException e) { System.out.println("Error al aplicar Soft-Delete al hábito: " + e.getMessage()); }
     }
 
-    // 7. Editar un Hábito Existente
+    // 7. Editar un Hábito Existente (V8.0.0e - Gatillo de Sincronización)
     public static void actualizarHabito(int idHabito, String nuevoNombre, int idCategoria, String colorHex) {
-        String sql = "UPDATE Habitos SET nombre = ?, id_categoria = ?, color = ? WHERE id = ?";
+        long marcaTiempo = System.currentTimeMillis();
+        String sql = "UPDATE Habitos SET nombre = ?, id_categoria = ?, color = ?, fecha_modificacion = ?, estado_sync = 'PENDIENTE' WHERE id = ?";
         try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, nuevoNombre);
             pstmt.setInt(2, idCategoria);
             pstmt.setString(3, colorHex);
-            pstmt.setInt(4, idHabito);
+            pstmt.setLong(4, marcaTiempo);
+            pstmt.setInt(5, idHabito);
             pstmt.executeUpdate();
-        } catch (SQLException e) {
-            System.out.println("Error al actualizar hábito: " + e.getMessage());
-        }
+        } catch (SQLException e) { System.out.println("Error al actualizar hábito: " + e.getMessage()); }
     }
 
    // =======================================================
@@ -1213,6 +1285,137 @@ public class GestorBaseDatos {
         }
 
         return resultados;
+    }
+
+    // =======================================================
+    // ☁️ MOTOR DE EXPORTACIÓN (JSON / DTOs) V8.0.0e
+    // =======================================================
+    public static PaqueteSyncDTO generarPaqueteSync() {
+        PaqueteSyncDTO paquete = new PaqueteSyncDTO();
+        paquete.timestamp_sincronizacion = System.currentTimeMillis();
+
+        if (idUsuarioActual == -1) return paquete;
+
+        try (Connection conn = conectar()) {
+            
+            // 1. Extraer Categorías
+            String sqlCat = "SELECT uuid, nombre, color, tipo, fecha_modificacion, eliminado FROM categorias WHERE id_usuario = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlCat)) {
+                pstmt.setInt(1, idUsuarioActual);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        CategoriaDTO dto = new CategoriaDTO();
+                        dto.uuid = rs.getString("uuid");
+                        dto.nombre = rs.getString("nombre");
+                        dto.color = rs.getString("color");
+                        dto.tipo = rs.getString("tipo");
+                        dto.fecha_modificacion = rs.getLong("fecha_modificacion");
+                        dto.eliminado = rs.getInt("eliminado") == 1;
+                        paquete.categorias.add(dto);
+                    }
+                }
+            }
+
+            // 2. Extraer Hábitos (Con JOIN para obtener el UUID de su categoría)
+            String sqlHab = "SELECT h.uuid, c.uuid AS categoria_uuid, h.nombre, h.color, h.fecha_creacion, h.fecha_modificacion, h.eliminado " +
+                            "FROM Habitos h LEFT JOIN categorias c ON h.id_categoria = c.id WHERE h.id_usuario = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlHab)) {
+                pstmt.setInt(1, idUsuarioActual);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        HabitoDTO dto = new HabitoDTO();
+                        dto.uuid = rs.getString("uuid");
+                        dto.categoria_uuid = rs.getString("categoria_uuid");
+                        dto.nombre = rs.getString("nombre");
+                        dto.color_hex = rs.getString("color");
+                        dto.fecha_creacion = rs.getString("fecha_creacion");
+                        dto.fecha_modificacion = rs.getLong("fecha_modificacion");
+                        dto.eliminado = rs.getInt("eliminado") == 1;
+                        paquete.habitos.add(dto);
+                    }
+                }
+            }
+
+            // 3. Extraer Tareas (Con JOIN para extraer los UUIDs de la categoría y la tarea padre)
+            String sqlTar = "SELECT t.uuid, c.uuid AS categoria_uuid, p.uuid AS padre_uuid, t.descripcion, t.completada, " +
+                            "t.fecha_vencimiento, t.hora_vencimiento, t.tipo_repeticion, t.fecha_modificacion, t.eliminado " +
+                            "FROM tareas t LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                            "LEFT JOIN tareas p ON t.id_tarea_padre = p.id WHERE t.id_usuario = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlTar)) {
+                pstmt.setInt(1, idUsuarioActual);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        TareaDTO dto = new TareaDTO();
+                        dto.uuid = rs.getString("uuid");
+                        dto.categoria_uuid = rs.getString("categoria_uuid");
+                        dto.tarea_padre_uuid = rs.getString("padre_uuid");
+                        
+                        // 🚨 La descripción viaja a la nube con su encriptación intacta (AES:xxxxx)
+                        dto.descripcion = rs.getString("descripcion"); 
+                        dto.completada = rs.getInt("completada") == 1;
+                        dto.fecha_vencimiento = rs.getString("fecha_vencimiento");
+                        dto.hora_vencimiento = rs.getString("hora_vencimiento");
+                        dto.tipo_repeticion = rs.getString("tipo_repeticion");
+                        
+                        dto.fecha_modificacion = rs.getLong("fecha_modificacion");
+                        dto.eliminado = rs.getInt("eliminado") == 1;
+                        
+                        paquete.tareas.add(dto);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error al generar paquete de sincronización: " + e.getMessage());
+        }
+
+        return paquete;
+    }
+
+    // =======================================================
+    // 🔐 GESTIÓN DE TOKENS DE RED P2P (FASE 4)
+    // =======================================================
+    
+    /**
+     * Guarda un nuevo celular autorizado en la bóveda
+     */
+    public static void registrarDispositivoConfianza(String token, String nombreDispositivo) {
+        if (idUsuarioActual == -1) return;
+        
+        String sql = "INSERT INTO dispositivos_confianza (token, nombre_dispositivo, id_usuario, fecha_vinculacion) VALUES (?, ?, ?, ?)";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, encriptarTexto(token)); // Lo encriptamos en disco por seguridad extrema
+            pstmt.setString(2, nombreDispositivo);
+            pstmt.setInt(3, idUsuarioActual);
+            pstmt.setLong(4, System.currentTimeMillis());
+            pstmt.executeUpdate();
+            System.out.println("🛡️ Nuevo dispositivo emparejado y guardado en la bóveda.");
+        } catch (SQLException e) {
+            System.out.println("Error al guardar token P2P: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Verifica si el Token que envía el celular existe en nuestra bóveda
+     */
+    public static boolean validarTokenConfianza(String tokenEntrante) {
+        if (idUsuarioActual == -1) return false;
+        
+        String sql = "SELECT token FROM dispositivos_confianza WHERE id_usuario = ?";
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuarioActual);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String tokenReal = desencriptarTexto(rs.getString("token"));
+                    if (tokenReal.equals(tokenEntrante)) {
+                        return true; // ¡Coincidencia! Es un celular conocido
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al validar token P2P: " + e.getMessage());
+        }
+        return false;
     }
 
 }

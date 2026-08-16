@@ -16,6 +16,9 @@ public class Configuracion {
     private String colorAcento;
     private boolean temaClaro;  
     private String formatoFecha; 
+    
+    // --- 🌐 RED Y SINCRONIZACIÓN ---
+    private boolean sincronizacionAutomatica;
 
     // Constructor por defecto (Los valores de fábrica de la aplicación)
     public Configuracion() {
@@ -30,12 +33,14 @@ public class Configuracion {
         this.colorAcento = "#C2185B";
         this.temaClaro = false;
         this.formatoFecha = "dd/MM/yyyy";
+        
+        this.sincronizacionAutomatica = false; // Valor por defecto
     }
 
-    // Constructor para cuando leemos desde SQLite
+    // Constructor para cuando leemos desde SQLite / Archivo
     public Configuracion(int intervaloNotificaciones, boolean arranqueAutomatico, boolean sonidoNotificaciones, 
                          boolean ocultarCompletadasAuto, int bloqueoInactividad, boolean modoPrivacidad, 
-                         String colorAcento, boolean temaClaro, String formatoFecha) {
+                         String colorAcento, boolean temaClaro, String formatoFecha, boolean sincronizacionAutomatica) {
         this.intervaloNotificaciones = intervaloNotificaciones;
         this.arranqueAutomatico = arranqueAutomatico;
         this.sonidoNotificaciones = sonidoNotificaciones;
@@ -45,6 +50,7 @@ public class Configuracion {
         this.colorAcento = colorAcento;
         this.temaClaro = temaClaro;
         this.formatoFecha = formatoFecha;
+        this.sincronizacionAutomatica = sincronizacionAutomatica; // 🚨 Lo agregamos al constructor
     }
 
     // --- GETTERS Y SETTERS ---
@@ -74,4 +80,7 @@ public class Configuracion {
 
     public String getFormatoFecha() { return formatoFecha; }
     public void setFormatoFecha(String formatoFecha) { this.formatoFecha = formatoFecha; }
+    
+    public boolean isSincronizacionAutomatica() { return sincronizacionAutomatica; }
+    public void setSincronizacionAutomatica(boolean sincronizacionAutomatica) { this.sincronizacionAutomatica = sincronizacionAutomatica; }
 }

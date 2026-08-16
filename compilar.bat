@@ -8,7 +8,7 @@ call mvn clean package
 
 echo.
 echo [2/2] Fabricando el ejecutable con jpackage...
-call jpackage --type exe --name "MiTodoList" --app-version "7.0.0" --icon icon.ico --input target --main-jar MiTodoList-V7.0.0e-jar-with-dependencies.jar --main-class com.mitodolist.Main --win-shortcut --win-menu --win-dir-chooser
+call jpackage --type exe --name "MiTodoList" --app-version "8.0.0" --icon icon.ico --input target --main-jar MiTodoList-V8.0.0e-jar-with-dependencies.jar --main-class com.mitodolist.Main --win-shortcut --win-menu --win-dir-chooser
 
 echo.
 echo ===================================================

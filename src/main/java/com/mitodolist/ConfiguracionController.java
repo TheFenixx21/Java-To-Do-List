@@ -3,6 +3,7 @@ package com.mitodolist;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -37,6 +38,13 @@ public class ConfiguracionController {
     @FXML private ComboBox<String> comboColor;
     @FXML private ComboBox<String> comboFecha;
 
+    // Controles de la Sección: Cuenta y Red
+    @FXML private CheckBox chkSyncAuto;
+    @FXML private Button btnSincronizar;
+    @FXML private VBox panelInfoSync;
+    @FXML private Label lblIpSync;
+    @FXML private Label lblPinSync;
+
     private double xOffset = 0;
     private double yOffset = 0;
     
@@ -44,6 +52,7 @@ public class ConfiguracionController {
     private String colorTemporalHex = "";
     private boolean dialogoAbierto = false;      // 🚨 Escudo anti-doble ventana
     private boolean ignorarAccionCombo = false;  // 🚨 Escudo anti-bucles
+    private ServidorSync servidorP2P;
 
     @FXML
     public void initialize() {
@@ -108,6 +117,7 @@ public class ConfiguracionController {
 
     @FXML
     public void cerrarVentana(ActionEvent evento) {
+        accionDetenerSync();
         Stage stage = (Stage) ((Node) evento.getSource()).getScene().getWindow();
         stage.close();
     }
@@ -351,10 +361,11 @@ public class ConfiguracionController {
     @FXML
     public void abrirSeccionCuenta() {
         if(vistaCuenta != null) {
+            // Cargamos la preferencia de Sincronización Automática de SQLite
+            chkSyncAuto.setSelected(configActual.isSincronizacionAutomatica());
+            
             vistaDashboard.setVisible(false);
             vistaCuenta.setVisible(true);
-        } else {
-            System.out.println("Panel Cuenta aún no inyectado en FXML.");
         }
     }
 
@@ -571,5 +582,52 @@ public class ConfiguracionController {
                 if (rootPrincipal != null) rootPrincipal.getStyleClass().remove("tema-claro");
             }
         }
+    }
+
+    // ==========================================
+    // 🌐 SISTEMA DE RED Y SINCRONIZACIÓN
+    // ==========================================
+    
+    @FXML
+    public void guardarConfigSyncAuto() {
+        // Se guarda en tiempo real cuando el usuario hace clic en el CheckBox
+        configActual.setSincronizacionAutomatica(chkSyncAuto.isSelected());
+        GestorConfiguracion.guardarConfiguracion(configActual);
+        System.out.println("🔄 Sincronización Automática configurada: " + chkSyncAuto.isSelected());
+    }
+
+    @FXML
+    public void accionSincronizar() {
+        if (servidorP2P == null) {
+            servidorP2P = new ServidorSync(false); // Falso porque es Manual
+        }
+        
+        servidorP2P.iniciarServidor();
+        
+        // Actualizamos la Interfaz Gráfica con la IP y el PIN generado
+        lblIpSync.setText("IP: " + ServidorSync.obtenerIPLocal());
+        lblPinSync.setText("PIN: " + servidorP2P.getPinActual());
+        
+        // Magia visual: Ocultamos el botón principal y revelamos el cuadro de IP
+        btnSincronizar.setVisible(false);
+        btnSincronizar.setManaged(false);
+        
+        panelInfoSync.setVisible(true);
+        panelInfoSync.setManaged(true);
+    }
+
+    @FXML
+    public void accionDetenerSync() {
+        if (servidorP2P != null) {
+            servidorP2P.detenerServidor();
+            servidorP2P = null; // Reiniciamos el objeto para que genere un PIN nuevo la próxima vez
+        }
+        
+        // Magia visual: Ocultamos el cuadro de IP y restauramos el botón principal
+        panelInfoSync.setVisible(false);
+        panelInfoSync.setManaged(false);
+        
+        btnSincronizar.setVisible(true);
+        btnSincronizar.setManaged(true);
     }
 }

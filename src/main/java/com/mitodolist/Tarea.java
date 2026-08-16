@@ -17,6 +17,11 @@ public class Tarea {
     private transient boolean expandida;
     private java.time.LocalTime horaLimite; // Permite guardar la hora exacta
     private String tipoRepeticion; // Puede ser: "NINGUNA", "DIARIA", "SEMANAL", "MENSUAL"
+    // --- ATRIBUTOS DE RED Y SINCRONIZACIÓN (V8.0.0e) ---
+    private String uuid;
+    private long fechaModificacion;
+    private String estadoSync; // "PENDIENTE", "SINCRONIZADO"
+    private boolean eliminado; // Soft Delete
 
     // --- CONSTRUCTOR ---
     public Tarea(String descripcion) {
@@ -114,6 +119,19 @@ public class Tarea {
     public java.time.LocalTime getHoraLimite() { return horaLimite; }
     public void setHoraLimite(java.time.LocalTime horaLimite) { this.horaLimite = horaLimite; }
 
+    // --- MÉTODOS DE GESTIÓN DE SINCRONIZACIÓN ---
     public String getTipoRepeticion() { return tipoRepeticion; }
     public void setTipoRepeticion(String tipoRepeticion) { this.tipoRepeticion = tipoRepeticion; }
+
+    public String getUuid() { return uuid; }
+    public void setUuid(String uuid) { this.uuid = uuid; }
+
+    public long getFechaModificacion() { return fechaModificacion; }
+    public void setFechaModificacion(long fechaModificacion) { this.fechaModificacion = fechaModificacion; }
+
+    public String getEstadoSync() { return estadoSync; }
+    public void setEstadoSync(String estadoSync) { this.estadoSync = estadoSync; }
+
+    public boolean isEliminado() { return eliminado; }
+    public void setEliminado(boolean eliminado) { this.eliminado = eliminado; }
 }

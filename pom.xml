@@ -40,7 +40,7 @@
   </dependencies>
 
   <build>
-    <finalName>MiTodoList-V7.0.0e</finalName>
+    <finalName>MiTodoList-V8.0.0e</finalName>
     <plugins>
       <plugin>
         <groupId>org.openjfx</groupId>
